@@ -89,6 +89,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "comments_author_profile_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "comments_post_id_fkey"
             columns: ["post_id"]
             isOneToOne: false
@@ -430,6 +437,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "posts_author_profile_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "posts_ministry_id_fkey"
             columns: ["ministry_id"]
             isOneToOne: false
@@ -493,6 +507,13 @@ export type Database = {
           ministry_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "prayer_author_profile_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "prayer_requests_ministry_id_fkey"
             columns: ["ministry_id"]
