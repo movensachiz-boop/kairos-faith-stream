@@ -76,10 +76,6 @@ function CreatePage() {
       toast.error("Sign in to go live.");
       return;
     }
-    if (!ministryId) {
-      toast.error("Pick a ministry you lead to go live from.");
-      return;
-    }
     if (!streamRef.current) await startCamera();
     if (!streamRef.current) return;
     setBusy(true);
@@ -87,7 +83,7 @@ function CreatePage() {
       .from("live_streams")
       .insert({
         created_by: user.id,
-        ministry_id: ministryId,
+        ministry_id: ministryId || null,
         title: liveTitle || "Live service",
         is_live: true,
         started_at: new Date().toISOString(),
@@ -208,7 +204,7 @@ function CreatePage() {
                 onChange={(e) => setMinistryId(e.target.value)}
                 className="glass w-full rounded-xl bg-card px-4 py-3 text-sm outline-none"
               >
-                <option value="">Choose a ministry you lead…</option>
+                <option value="">Personal live — no ministry (optional)</option>
                 {(ministries.data ?? []).map((m: any) => (
                   <option key={m.id} value={m.id}>
                     {m.name}
