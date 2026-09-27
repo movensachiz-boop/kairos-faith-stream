@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { AppShell, SectionCard } from "@/components/layout/AppShell";
 import { ministriesQuery } from "@/lib/kairos";
@@ -11,7 +11,7 @@ export const Route = createFileRoute("/_authenticated/create")({
   head: () => ({
     meta: [
       { title: "Create — KAIROS APP" },
-      { name: "description", content: "Share a word, a sermon, a testimony or a prayer request." },
+      { name: "description", content: "Share a word, a sermon, a testimony, go live or send a prayer request." },
       { property: "og:title", content: "Create — KAIROS APP" },
       { property: "og:description", content: "Publish Christian content to the KAIROS community." },
     ],
@@ -27,7 +27,7 @@ function CreatePage() {
   const queryClient = useQueryClient();
   const ministries = useQuery(ministriesQuery());
 
-  const [tab, setTab] = useState<"post" | "prayer">("post");
+  const [tab, setTab] = useState<"post" | "prayer" | "live">("post");
   const [kind, setKind] = useState<(typeof kinds)[number]>("text");
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
@@ -35,6 +35,83 @@ function CreatePage() {
   const [ministryId, setMinistryId] = useState("");
   const [anonymous, setAnonymous] = useState(false);
   const [busy, setBusy] = useState(false);
+
+  // Live state
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const [cameraOn, setCameraOn] = useState(false);
+  const [liveId, setLiveId] = useState<string | null>(null);
+  const [liveTitle, setLiveTitle] = useState("");
+
+  function stopCamera() {
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
+    setCameraOn(false);
+  }
+
+  useEffect(() => stopCamera, []);
+
+  async function startCamera() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play();
+      }
+      setCameraOn(true);
+    } catch (err: any) {
+      toast.error(err?.message ?? "Camera access was denied.");
+    }
+  }
+
+  async function goLive() {
+    if (!user) {
+      toast.error("Sign in to go live.");
+      return;
+    }
+    if (!ministryId) {
+      toast.error("Pick a ministry you lead to go live from.");
+      return;
+    }
+    if (!cameraOn) await startCamera();
+    setBusy(true);
+    const { data, error } = await supabase
+      .from("live_streams")
+      .insert({
+        created_by: user.id,
+        ministry_id: ministryId,
+        title: liveTitle || "Live service",
+        is_live: true,
+        started_at: new Date().toISOString(),
+      })
+      .select("id")
+      .single();
+    setBusy(false);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    setLiveId(data.id);
+    queryClient.invalidateQueries({ queryKey: ["live-streams"] });
+    toast.success("You are live!");
+  }
+
+  async function endLive() {
+    if (!liveId) return;
+    setBusy(true);
+    const { error } = await supabase.from("live_streams").update({ is_live: false }).eq("id", liveId);
+    setBusy(false);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    setLiveId(null);
+    stopCamera();
+    queryClient.invalidateQueries({ queryKey: ["live-streams"] });
+    toast.success("Live ended.");
+    navigate({ to: "/live" });
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -50,7 +127,10 @@ function CreatePage() {
         scripture_ref: scripture || null,
       });
       setBusy(false);
-      if (error) { toast.error(error.message); return; }
+      if (error) {
+        toast.error(error.message);
+        return;
+      }
       toast.success("Published to your feed.");
       queryClient.invalidateQueries({ queryKey: ["feed"] });
     } else {
@@ -61,7 +141,10 @@ function CreatePage() {
         is_anonymous: anonymous,
       });
       setBusy(false);
-      if (error) { toast.error(error.message); return; }
+      if (error) {
+        toast.error(error.message);
+        return;
+      }
       toast.success("Prayer request shared.");
       queryClient.invalidateQueries({ queryKey: ["prayers"] });
     }
@@ -73,7 +156,7 @@ function CreatePage() {
       <div className="mx-auto max-w-2xl space-y-5">
         <SectionCard title="Create" icon="➕">
           <div className="mb-4 flex gap-2">
-            {(["post", "prayer"] as const).map((t) => (
+            {(["post", "prayer", "live"] as const).map((t) => (
               <button
                 key={t}
                 onClick={() => setTab(t)}
@@ -81,80 +164,153 @@ function CreatePage() {
                   tab === t ? "bg-gold text-ink" : "glass text-muted-foreground"
                 }`}
               >
-                {t === "post" ? "Post / Sermon" : "Prayer request"}
+                {t === "post" ? "Post / Sermon" : t === "prayer" ? "Prayer request" : "🔴 Go Live"}
               </button>
             ))}
           </div>
 
-          <form onSubmit={submit} className="space-y-3">
-            {tab === "post" ? (
-              <>
-                <div className="flex flex-wrap gap-2">
-                  {kinds.map((k) => (
-                    <button
-                      key={k}
-                      type="button"
-                      onClick={() => setKind(k)}
-                      className={`rounded-lg px-3 py-1.5 text-xs font-semibold capitalize ${
-                        kind === k ? "bg-foreground/15" : "glass text-muted-foreground"
-                      }`}
-                    >
-                      {k}
-                    </button>
-                  ))}
-                </div>
-                <input
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="Title"
-                  className="glass w-full rounded-xl px-4 py-3 text-sm outline-none placeholder:text-muted-foreground"
-                />
-              </>
-            ) : null}
+          {tab === "live" ? (
+            <div className="space-y-3">
+              <div className="relative overflow-hidden rounded-xl">
+                <video ref={videoRef} muted playsInline className="aspect-video w-full bg-ink object-cover" />
+                {liveId ? (
+                  <span className="absolute left-3 top-3 flex items-center gap-2 rounded-full bg-live px-3 py-1 text-xs font-bold text-white">
+                    <span className="live-dot" /> LIVE
+                  </span>
+                ) : null}
+                {!cameraOn ? (
+                  <div className="absolute inset-0 flex items-center justify-center text-sm text-muted-foreground">
+                    Camera is off
+                  </div>
+                ) : null}
+              </div>
 
-            <textarea
-              required
-              value={body}
-              onChange={(e) => setBody(e.target.value)}
-              rows={5}
-              placeholder={tab === "post" ? "Share the word God gave you…" : "What can the community pray with you about?"}
-              className="glass w-full rounded-xl px-4 py-3 text-sm outline-none placeholder:text-muted-foreground"
-            />
-
-            {tab === "post" ? (
               <input
-                value={scripture}
-                onChange={(e) => setScripture(e.target.value)}
-                placeholder="Scripture reference (e.g. Psalm 46:10)"
+                value={liveTitle}
+                onChange={(e) => setLiveTitle(e.target.value)}
+                placeholder="Live title (e.g. Sunday Service)"
                 className="glass w-full rounded-xl px-4 py-3 text-sm outline-none placeholder:text-muted-foreground"
               />
-            ) : (
-              <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                <input type="checkbox" checked={anonymous} onChange={(e) => setAnonymous(e.target.checked)} />
-                Post anonymously
-              </label>
-            )}
 
-            <select
-              value={ministryId}
-              onChange={(e) => setMinistryId(e.target.value)}
-              className="glass w-full rounded-xl bg-card px-4 py-3 text-sm outline-none"
-            >
-              <option value="">No ministry (personal)</option>
-              {(ministries.data ?? []).map((m: any) => (
-                <option key={m.id} value={m.id}>
-                  {m.name}
-                </option>
-              ))}
-            </select>
+              <select
+                value={ministryId}
+                onChange={(e) => setMinistryId(e.target.value)}
+                className="glass w-full rounded-xl bg-card px-4 py-3 text-sm outline-none"
+              >
+                <option value="">Choose a ministry you lead…</option>
+                {(ministries.data ?? []).map((m: any) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name}
+                  </option>
+                ))}
+              </select>
 
-            <button
-              disabled={busy}
-              className="brand-mark w-full rounded-xl py-3 text-sm font-semibold text-ink disabled:opacity-60"
-            >
-              {busy ? "Publishing…" : "Publish"}
-            </button>
-          </form>
+              <div className="flex gap-2">
+                {!cameraOn ? (
+                  <button
+                    onClick={startCamera}
+                    className="glass flex-1 rounded-xl py-3 text-sm font-semibold text-azure"
+                  >
+                    Start camera
+                  </button>
+                ) : null}
+                {!liveId ? (
+                  <button
+                    onClick={goLive}
+                    disabled={busy}
+                    className="brand-mark flex-1 rounded-xl py-3 text-sm font-semibold text-ink disabled:opacity-60"
+                  >
+                    {busy ? "Starting…" : "🔴 Go live now"}
+                  </button>
+                ) : (
+                  <button
+                    onClick={endLive}
+                    disabled={busy}
+                    className="flex-1 rounded-xl bg-live py-3 text-sm font-semibold text-white disabled:opacity-60"
+                  >
+                    {busy ? "Ending…" : "End live"}
+                  </button>
+                )}
+              </div>
+
+              <p className="text-xs text-muted-foreground">
+                Your camera video plays here while you are live, and your stream appears on the Live page for the
+                community. Broadcasting the live video to other viewers' screens in real time is not built yet.
+              </p>
+            </div>
+          ) : (
+            <form onSubmit={submit} className="space-y-3">
+              {tab === "post" ? (
+                <>
+                  <div className="flex flex-wrap gap-2">
+                    {kinds.map((k) => (
+                      <button
+                        key={k}
+                        type="button"
+                        onClick={() => setKind(k)}
+                        className={`rounded-lg px-3 py-1.5 text-xs font-semibold capitalize ${
+                          kind === k ? "bg-foreground/15" : "glass text-muted-foreground"
+                        }`}
+                      >
+                        {k}
+                      </button>
+                    ))}
+                  </div>
+                  <input
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    placeholder="Title"
+                    className="glass w-full rounded-xl px-4 py-3 text-sm outline-none placeholder:text-muted-foreground"
+                  />
+                </>
+              ) : null}
+
+              <textarea
+                required
+                value={body}
+                onChange={(e) => setBody(e.target.value)}
+                rows={5}
+                placeholder={
+                  tab === "post" ? "Share the word God gave you…" : "What can the community pray with you about?"
+                }
+                className="glass w-full rounded-xl px-4 py-3 text-sm outline-none placeholder:text-muted-foreground"
+              />
+
+              {tab === "post" ? (
+                <input
+                  value={scripture}
+                  onChange={(e) => setScripture(e.target.value)}
+                  placeholder="Scripture reference (e.g. Psalm 46:10)"
+                  className="glass w-full rounded-xl px-4 py-3 text-sm outline-none placeholder:text-muted-foreground"
+                />
+              ) : (
+                <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <input type="checkbox" checked={anonymous} onChange={(e) => setAnonymous(e.target.checked)} />
+                  Post anonymously
+                </label>
+              )}
+
+              <select
+                value={ministryId}
+                onChange={(e) => setMinistryId(e.target.value)}
+                className="glass w-full rounded-xl bg-card px-4 py-3 text-sm outline-none"
+              >
+                <option value="">No ministry (personal)</option>
+                {(ministries.data ?? []).map((m: any) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name}
+                  </option>
+                ))}
+              </select>
+
+              <button
+                disabled={busy}
+                className="brand-mark w-full rounded-xl py-3 text-sm font-semibold text-ink disabled:opacity-60"
+              >
+                {busy ? "Publishing…" : "Publish"}
+              </button>
+            </form>
+          )}
         </SectionCard>
 
         <SectionCard title="Video recording" icon="🎥">
