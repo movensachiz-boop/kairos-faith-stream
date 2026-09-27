@@ -36,7 +36,7 @@ export const prayerQuery = () => ({
   queryFn: async () => {
     const { data, error } = await supabase
       .from("prayer_requests")
-      .select("*, profiles!posts_author_profile_fkey(display_name, username), prayer_intercessions(user_id)")
+      .select("*, profiles!prayer_author_profile_fkey(display_name, username), prayer_intercessions(user_id)")
       .order("created_at", { ascending: false })
       .limit(20);
     if (error) throw error;
