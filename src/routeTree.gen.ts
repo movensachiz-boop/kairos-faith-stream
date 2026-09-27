@@ -21,6 +21,7 @@ import { Route as MinistriesRouteImport } from './routes/ministries'
 import { Route as AuthenticatedCreateRouteImport } from './routes/_authenticated/create'
 import { Route as AuthenticatedNotificationsRouteImport } from './routes/_authenticated/notifications'
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
+import { Route as LiveIdRouteImport } from './routes/live.$id'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -82,6 +83,11 @@ const AuthenticatedProfileRoute = AuthenticatedProfileRouteImport.update({
   path: '/profile',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const LiveIdRoute = LiveIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => LiveRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -90,11 +96,12 @@ export interface FileRoutesByFullPath {
   '/discover': typeof DiscoverRoute
   '/events': typeof EventsRoute
   '/giving': typeof GivingRoute
-  '/live': typeof LiveRoute
+  '/live': typeof LiveRouteWithChildren
   '/ministries': typeof MinistriesRoute
   '/create': typeof AuthenticatedCreateRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
   '/profile': typeof AuthenticatedProfileRoute
+  '/live/$id': typeof LiveIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -103,11 +110,12 @@ export interface FileRoutesByTo {
   '/discover': typeof DiscoverRoute
   '/events': typeof EventsRoute
   '/giving': typeof GivingRoute
-  '/live': typeof LiveRoute
+  '/live': typeof LiveRouteWithChildren
   '/ministries': typeof MinistriesRoute
   '/create': typeof AuthenticatedCreateRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
   '/profile': typeof AuthenticatedProfileRoute
+  '/live/$id': typeof LiveIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -118,11 +126,12 @@ export interface FileRoutesById {
   '/discover': typeof DiscoverRoute
   '/events': typeof EventsRoute
   '/giving': typeof GivingRoute
-  '/live': typeof LiveRoute
+  '/live': typeof LiveRouteWithChildren
   '/ministries': typeof MinistriesRoute
   '/_authenticated/create': typeof AuthenticatedCreateRoute
   '/_authenticated/notifications': typeof AuthenticatedNotificationsRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
+  '/live/$id': typeof LiveIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -138,6 +147,7 @@ export interface FileRouteTypes {
     | '/create'
     | '/notifications'
     | '/profile'
+    | '/live/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -151,6 +161,7 @@ export interface FileRouteTypes {
     | '/create'
     | '/notifications'
     | '/profile'
+    | '/live/$id'
   id:
     | '__root__'
     | '/'
@@ -165,6 +176,7 @@ export interface FileRouteTypes {
     | '/_authenticated/create'
     | '/_authenticated/notifications'
     | '/_authenticated/profile'
+    | '/live/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -175,7 +187,7 @@ export interface RootRouteChildren {
   DiscoverRoute: typeof DiscoverRoute
   EventsRoute: typeof EventsRoute
   GivingRoute: typeof GivingRoute
-  LiveRoute: typeof LiveRoute
+  LiveRoute: typeof LiveRouteWithChildren
   MinistriesRoute: typeof MinistriesRoute
 }
 
@@ -265,6 +277,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedProfileRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/live/$id': {
+      id: '/live/$id'
+      path: '/$id'
+      fullPath: '/live/$id'
+      preLoaderRoute: typeof LiveIdRouteImport
+      parentRoute: typeof LiveRoute
+    }
   }
 }
 
@@ -283,6 +302,16 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
 const AuthenticatedRouteRouteWithChildren =
   AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
 
+interface LiveRouteChildren {
+  LiveIdRoute: typeof LiveIdRoute
+}
+
+const LiveRouteChildren: LiveRouteChildren = {
+  LiveIdRoute: LiveIdRoute,
+}
+
+const LiveRouteWithChildren = LiveRoute._addFileChildren(LiveRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
@@ -291,7 +320,7 @@ const rootRouteChildren: RootRouteChildren = {
   DiscoverRoute: DiscoverRoute,
   EventsRoute: EventsRoute,
   GivingRoute: GivingRoute,
-  LiveRoute: LiveRoute,
+  LiveRoute: LiveRouteWithChildren,
   MinistriesRoute: MinistriesRoute,
 }
 export const routeTree = rootRouteImport

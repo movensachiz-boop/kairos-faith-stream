@@ -31,16 +31,15 @@ function LivePage() {
             <p className="text-sm text-muted-foreground">Loading services…</p>
           ) : list.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              No services scheduled yet. Ministry leaders can announce a service from their ministry page. Video
-              streaming itself is not connected yet — this lists the services ministries have published.
+              No services scheduled yet. Ministry leaders can announce a service from their ministry page. Go live from Create to broadcast.
             </p>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {list.map((s: any) => (
-                <article key={s.id} className="glass overflow-hidden rounded-2xl">
+                <Link key={s.id} to="/live/$id" params={{ id: s.id }} className="glass block overflow-hidden rounded-2xl">
                   <div className="flex aspect-video items-center justify-center bg-foreground/5">
                     <span className="text-xs text-muted-foreground">
-                      {s.is_live ? "Stream player not connected" : "Scheduled"}
+                      {s.is_live ? "▶ Tap to watch live" : "Ended"}
                     </span>
                   </div>
                   <div className="p-4">
@@ -56,7 +55,7 @@ function LivePage() {
                       {s.scripture_ref ? ` · ${s.scripture_ref}` : ""}
                     </p>
                   </div>
-                </article>
+                </Link>
               ))}
             </div>
           )}
@@ -64,7 +63,7 @@ function LivePage() {
 
         <SectionCard title="What's not built yet" icon="🛠️">
           <p className="text-sm text-muted-foreground">
-            Real-time video streaming, sermon transcription, AI summaries, captions and audio enhancement are not
+            Large-audience streaming and replays, sermon transcription, AI summaries, captions and audio enhancement are not
             implemented yet. The service listings, following, prayer and giving records below are live and stored
             in your database.
           </p>

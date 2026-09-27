@@ -6,6 +6,7 @@ import { AppShell, SectionCard } from "@/components/layout/AppShell";
 import { ministriesQuery } from "@/lib/kairos";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { startHost } from "@/lib/broadcast";
 
 export const Route = createFileRoute("/_authenticated/create")({
   head: () => ({
@@ -42,6 +43,8 @@ function CreatePage() {
   const [cameraOn, setCameraOn] = useState(false);
   const [liveId, setLiveId] = useState<string | null>(null);
   const [liveTitle, setLiveTitle] = useState("");
+  const stopBroadcastRef = useRef<null | (() => void)>(null);
+  const [viewers, setViewers] = useState(0);
 
   function stopCamera() {
     streamRef.current?.getTracks().forEach((t) => t.stop());
@@ -49,7 +52,10 @@ function CreatePage() {
     setCameraOn(false);
   }
 
-  useEffect(() => stopCamera, []);
+  useEffect(() => () => {
+    stopBroadcastRef.current?.();
+    stopCamera();
+  }, []);
 
   async function startCamera() {
     try {
@@ -74,7 +80,8 @@ function CreatePage() {
       toast.error("Pick a ministry you lead to go live from.");
       return;
     }
-    if (!cameraOn) await startCamera();
+    if (!streamRef.current) await startCamera();
+    if (!streamRef.current) return;
     setBusy(true);
     const { data, error } = await supabase
       .from("live_streams")
@@ -93,6 +100,7 @@ function CreatePage() {
       return;
     }
     setLiveId(data.id);
+    stopBroadcastRef.current = startHost(data.id, streamRef.current, setViewers);
     queryClient.invalidateQueries({ queryKey: ["live-streams"] });
     toast.success("You are live!");
   }
@@ -106,6 +114,9 @@ function CreatePage() {
       toast.error(error.message);
       return;
     }
+    stopBroadcastRef.current?.();
+    stopBroadcastRef.current = null;
+    setViewers(0);
     setLiveId(null);
     stopCamera();
     queryClient.invalidateQueries({ queryKey: ["live-streams"] });
@@ -175,7 +186,7 @@ function CreatePage() {
                 <video ref={videoRef} muted playsInline className="aspect-video w-full bg-ink object-cover" />
                 {liveId ? (
                   <span className="absolute left-3 top-3 flex items-center gap-2 rounded-full bg-live px-3 py-1 text-xs font-bold text-white">
-                    <span className="live-dot" /> LIVE
+                    <span className="live-dot" /> LIVE · {viewers} watching
                   </span>
                 ) : null}
                 {!cameraOn ? (
@@ -234,8 +245,9 @@ function CreatePage() {
               </div>
 
               <p className="text-xs text-muted-foreground">
-                Your camera video plays here while you are live, and your stream appears on the Live page for the
-                community. Broadcasting the live video to other viewers' screens in real time is not built yet.
+                When you go live, your video is broadcast to anyone who opens your stream on the Live page. Video goes
+                straight from your device to each viewer, so it works best for around 10–20 viewers. Keep this page open
+                while live.
               </p>
             </div>
           ) : (
