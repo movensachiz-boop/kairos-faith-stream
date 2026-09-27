@@ -74,7 +74,7 @@ export function joinAsViewer(
     else if (msg.type === "offer" && msg.to === me) {
       pc?.close();
       pc = new RTCPeerConnection(ICE);
-      pc.ontrack = (e) => onStream(e.streams[0]);
+      pc.ontrack = (e) => e.streams[0] && onStream(e.streams[0]);
       pc.onicecandidate = (e) => e.candidate && send({ type: "ice", from: me, candidate: e.candidate.toJSON() });
       await pc.setRemoteDescription(msg.sdp);
       const answer = await pc.createAnswer();
