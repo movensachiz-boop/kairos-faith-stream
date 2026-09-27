@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { AppShell, SectionCard } from "@/components/layout/AppShell";
 import { liveStreamsQuery } from "@/lib/kairos";
 
-export const Route = createFileRoute("/live")({
+export const Route = createFileRoute("/live/")({
   head: () => ({
     meta: [
       { title: "Live services — KAIROS APP" },
