@@ -39,7 +39,7 @@ function BiblePage() {
   });
 
   async function bookmark(reference: string) {
-    if (!user) return toast.error("Sign in to save verses.");
+    if (!user) { toast.error("Sign in to save verses."); return; }
     const { error } = await supabase.from("bible_bookmarks").insert({ user_id: user.id, reference });
     if (error) {
       toast.error(error.message.includes("duplicate") ? "Already saved." : error.message);

@@ -46,8 +46,8 @@ function GivingPage() {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!user) return toast.error("Sign in to give.");
-    if (!ministryId) return toast.error("Choose a ministry.");
+    if (!user) { toast.error("Sign in to give."); return; }
+    if (!ministryId) { toast.error("Choose a ministry."); return; }
     setBusy(true);
     const { error } = await supabase.from("gifts").insert({
       giver_id: user.id,
@@ -57,7 +57,7 @@ function GivingPage() {
       note: note || null,
     });
     setBusy(false);
-    if (error) return toast.error(error.message);
+    if (error) { toast.error(error.message); return; }
     toast.success("Gift recorded as pending — payment is not processed yet.");
     setNote("");
     queryClient.invalidateQueries({ queryKey: ["gifts", user.id] });

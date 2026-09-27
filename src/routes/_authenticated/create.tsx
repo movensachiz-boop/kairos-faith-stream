@@ -50,7 +50,7 @@ function CreatePage() {
         scripture_ref: scripture || null,
       });
       setBusy(false);
-      if (error) return toast.error(error.message);
+      if (error) { toast.error(error.message); return; }
       toast.success("Published to your feed.");
       queryClient.invalidateQueries({ queryKey: ["feed"] });
     } else {
@@ -61,7 +61,7 @@ function CreatePage() {
         is_anonymous: anonymous,
       });
       setBusy(false);
-      if (error) return toast.error(error.message);
+      if (error) { toast.error(error.message); return; }
       toast.success("Prayer request shared.");
       queryClient.invalidateQueries({ queryKey: ["prayers"] });
     }

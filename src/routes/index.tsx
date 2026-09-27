@@ -38,7 +38,7 @@ function Home() {
   const liveNow = (streams.data ?? []).find((s) => s.is_live) ?? (streams.data ?? [])[0];
 
   async function toggleLike(postId: string, liked: boolean) {
-    if (!user) return toast.error("Sign in to like posts.");
+    if (!user) { toast.error("Sign in to like posts."); return; }
     if (liked) {
       await supabase.from("post_likes").delete().eq("post_id", postId).eq("user_id", user.id);
     } else {
@@ -48,7 +48,7 @@ function Home() {
   }
 
   async function pray(prayerId: string, prayed: boolean) {
-    if (!user) return toast.error("Sign in to pray for a request.");
+    if (!user) { toast.error("Sign in to pray for a request."); return; }
     if (prayed) {
       await supabase.from("prayer_intercessions").delete().eq("prayer_id", prayerId).eq("user_id", user.id);
     } else {
@@ -58,7 +58,7 @@ function Home() {
   }
 
   async function follow(ministryId: string, following: boolean) {
-    if (!user) return toast.error("Sign in to follow ministries.");
+    if (!user) { toast.error("Sign in to follow ministries."); return; }
     if (following) {
       await supabase.from("follows").delete().eq("ministry_id", ministryId).eq("follower_id", user.id);
     } else {

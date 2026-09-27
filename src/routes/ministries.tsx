@@ -30,7 +30,7 @@ function MinistriesPage() {
 
   async function createMinistry(e: React.FormEvent) {
     e.preventDefault();
-    if (!user) return toast.error("Sign in to create a ministry.");
+    if (!user) { toast.error("Sign in to create a ministry."); return; }
     setBusy(true);
     const slug = `${name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")}-${Math.random()
       .toString(36)
@@ -39,7 +39,7 @@ function MinistriesPage() {
       .from("ministries")
       .insert({ name, slug, category: category || null, tagline: tagline || null, owner_id: user.id });
     setBusy(false);
-    if (error) return toast.error(error.message);
+    if (error) { toast.error(error.message); return; }
     toast.success("Ministry created.");
     setName("");
     setCategory("");
@@ -48,7 +48,7 @@ function MinistriesPage() {
   }
 
   async function follow(ministryId: string, following: boolean) {
-    if (!user) return toast.error("Sign in to follow ministries.");
+    if (!user) { toast.error("Sign in to follow ministries."); return; }
     if (following) {
       await supabase.from("follows").delete().eq("ministry_id", ministryId).eq("follower_id", user.id);
     } else {

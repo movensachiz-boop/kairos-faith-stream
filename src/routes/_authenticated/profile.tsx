@@ -62,7 +62,7 @@ function ProfilePage() {
       .from("profiles")
       .update({ display_name: displayName, bio })
       .eq("id", user.id);
-    if (error) return toast.error(error.message);
+    if (error) { toast.error(error.message); return; }
     toast.success("Profile updated.");
     queryClient.invalidateQueries({ queryKey: ["profile", user.id] });
   }

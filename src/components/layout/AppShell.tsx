@@ -79,7 +79,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   to="/profile"
                   className="brand-cool grid size-9 place-items-center rounded-full text-xs font-semibold"
                 >
-                  {initials(user?.user_metadata?.display_name ?? user?.email)}
+                  {initials(user?.user_metadata?.['display_name'] ?? user?.email)}
                 </Link>
                 <button
                   onClick={signOut}
