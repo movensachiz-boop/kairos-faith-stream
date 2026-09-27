@@ -70,6 +70,24 @@ function AuthPage() {
     navigate({ to: "/" });
   }
 
+  async function guest() {
+    setBusy(true);
+    try {
+      await ensureGuestUser();
+      const { error } = await supabase.auth.signInWithPassword({
+        email: GUEST_EMAIL,
+        password: GUEST_PASSWORD,
+      });
+      if (error) throw error;
+      toast.success("Welcome, guest.");
+      navigate({ to: "/" });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Guest sign-in failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="flex min-h-screen items-center justify-center px-4 py-10">
       <div className="glass-strong w-full max-w-md rounded-3xl p-7">
@@ -127,6 +145,14 @@ function AuthPage() {
 
         <button onClick={google} className="glass mt-3 w-full rounded-xl py-3 text-sm font-medium">
           Continue with Google
+        </button>
+
+        <button
+          onClick={guest}
+          disabled={busy}
+          className="glass mt-3 w-full rounded-xl py-3 text-sm font-semibold text-gold disabled:opacity-60"
+        >
+          Enter as guest — no details needed
         </button>
 
         <button
