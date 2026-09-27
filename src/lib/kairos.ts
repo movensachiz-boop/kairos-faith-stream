@@ -22,7 +22,7 @@ export const feedQuery = () => ({
     const { data, error } = await supabase
       .from("posts")
       .select(
-        "*, profiles:author_id(display_name, username), ministries:ministry_id(name, slug), post_likes(user_id), comments(id)",
+        "*, profiles!posts_author_profile_fkey(display_name, username), ministries:ministry_id(name, slug), post_likes(user_id), comments(id)",
       )
       .order("created_at", { ascending: false })
       .limit(30);
@@ -36,7 +36,7 @@ export const prayerQuery = () => ({
   queryFn: async () => {
     const { data, error } = await supabase
       .from("prayer_requests")
-      .select("*, profiles:author_id(display_name, username), prayer_intercessions(user_id)")
+      .select("*, profiles!posts_author_profile_fkey(display_name, username), prayer_intercessions(user_id)")
       .order("created_at", { ascending: false })
       .limit(20);
     if (error) throw error;
