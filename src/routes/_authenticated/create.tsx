@@ -79,11 +79,33 @@ function CreatePage() {
     if (!streamRef.current) await startCamera();
     if (!streamRef.current) return;
     setBusy(true);
+    let channelId = ministryId;
+    if (!channelId) {
+      // Personal live: use (or create) the user's own personal channel.
+      const slug = `personal-${user.id}`;
+      const existing = await supabase.from("ministries").select("id").eq("slug", slug).maybeSingle();
+      if (existing.data) {
+        channelId = existing.data.id;
+      } else {
+        const name = (user.user_metadata?.["display_name"] as string) || user.email?.split("@")[0] || "My";
+        const created = await supabase
+          .from("ministries")
+          .insert({ slug, name: `${name}'s channel`, owner_id: user.id, category: "Personal" })
+          .select("id")
+          .single();
+        if (created.error) {
+          setBusy(false);
+          toast.error(created.error.message);
+          return;
+        }
+        channelId = created.data.id;
+      }
+    }
     const { data, error } = await supabase
       .from("live_streams")
       .insert({
         created_by: user.id,
-        ministry_id: ministryId || null,
+        ministry_id: channelId,
         title: liveTitle || "Live service",
         is_live: true,
         started_at: new Date().toISOString(),
