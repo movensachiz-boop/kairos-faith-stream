@@ -614,7 +614,7 @@ function PairingQR({
   const [link, setLink] = useState("");
 
   useEffect(() => {
-    const cameraLink = `${window.location.origin}/live/${streamId}/camera?slot=${slot}&token=${encodeURIComponent(token)}`;
+    const cameraLink = `${window.location.origin}/camera/${streamId}?slot=${slot}&token=${encodeURIComponent(token)}`;
     setLink(cameraLink);
     void QRCode.toDataURL(cameraLink, { width: 220, margin: 1 }).then(setQr);
   }, [slot, streamId, token]);
