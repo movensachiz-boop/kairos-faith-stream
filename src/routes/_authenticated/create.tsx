@@ -63,6 +63,7 @@ function CreatePage() {
   const voiceGainRef = useRef<GainNode | null>(null);
   const musicGainRef = useRef<GainNode | null>(null);
   const musicElRef = useRef<HTMLAudioElement | null>(null);
+  const musicSourceRef = useRef<MediaElementAudioSourceNode | null>(null);
   const mixedRef = useRef<MediaStream | null>(null);
   const [voiceVol, setVoiceVol] = useState(100);
   const [musicVol, setMusicVol] = useState(25);
@@ -108,7 +109,9 @@ function CreatePage() {
     const el = musicElRef.current ?? new Audio();
     el.loop = true;
     musicElRef.current = el;
-    ctx.createMediaElementSource(el).connect(musicGain);
+    const musicSource = musicSourceRef.current ?? ctx.createMediaElementSource(el);
+    musicSourceRef.current = musicSource;
+    musicSource.connect(musicGain);
 
     audioCtxRef.current = ctx;
     voiceGainRef.current = voiceGain;
