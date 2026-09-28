@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { AppShell, SectionCard } from "@/components/layout/AppShell";
 import { supabase } from "@/integrations/supabase/client";
 import { joinAsViewer } from "@/lib/broadcast";
+import { LiveComments } from "@/components/live/LiveComments";
 
 export const Route = createFileRoute("/live/$id")({
   head: () => ({
@@ -93,6 +94,8 @@ function WatchPage() {
             gatherings (around 10–20 viewers).
           </p>
         </SectionCard>
+
+        <LiveComments streamId={id} />
       </div>
     </AppShell>
   );
