@@ -83,10 +83,10 @@ function Home() {
               />
               <div className="absolute left-3 top-3 flex items-center gap-2">
                 <span className="live-dot size-2.5 rounded-full bg-destructive" />
-                <span className="rounded-full bg-ink/60 px-2.5 py-1 text-xs font-semibold tracking-wide backdrop-blur">
+                <span className="rounded-full bg-ink/60 px-2.5 py-1 text-xs font-semibold tracking-wide">
                   {liveNow?.is_live ? "LIVE" : "REPLAY"}
                 </span>
-                <span className="rounded-full bg-ink/60 px-2.5 py-1 text-xs text-muted-foreground backdrop-blur">
+                <span className="rounded-full bg-ink/60 px-2.5 py-1 text-xs text-muted-foreground">
                   {liveNow?.viewer_count ?? 0} watching
                 </span>
               </div>

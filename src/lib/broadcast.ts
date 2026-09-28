@@ -256,6 +256,7 @@ export function joinAsRemoteCamera(
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
         await send({ type: "camera-answer", from: me, slot, sdp: answer });
+        onStatus("connected");
       } else if (message.type === "camera-ice" && message.to === me && message.slot === slot) {
         await pc?.addIceCandidate(message.candidate).catch(() => {});
       }
