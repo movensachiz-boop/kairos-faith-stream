@@ -6,7 +6,7 @@ import { joinAsRemoteCamera, type CameraSlot, type CameraStatus } from "@/lib/br
 
 type CameraSearch = { slot?: number; token?: string };
 
-export const Route = createFileRoute("/live/$id/camera")({
+export const Route = createFileRoute("/camera/$id")({
   validateSearch: (search: Record<string, unknown>): CameraSearch => ({
     slot: Number(search.slot) || undefined,
     token: typeof search.token === "string" ? search.token : undefined,

@@ -20,9 +20,9 @@ import { Route as MinistriesRouteImport } from './routes/ministries'
 import { Route as AuthenticatedCreateRouteImport } from './routes/_authenticated/create'
 import { Route as AuthenticatedNotificationsRouteImport } from './routes/_authenticated/notifications'
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
+import { Route as CameraIdRouteImport } from './routes/camera.$id'
 import { Route as LiveIndexRouteImport } from './routes/live.index'
 import { Route as LiveIdRouteImport } from './routes/live.$id'
-import { Route as LiveIdCameraRouteImport } from './routes/live.$id.camera'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -79,6 +79,11 @@ const AuthenticatedProfileRoute = AuthenticatedProfileRouteImport.update({
   path: '/profile',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const CameraIdRoute = CameraIdRouteImport.update({
+  id: '/camera/$id',
+  path: '/camera/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LiveIndexRoute = LiveIndexRouteImport.update({
   id: '/live/',
   path: '/live/',
@@ -88,11 +93,6 @@ const LiveIdRoute = LiveIdRouteImport.update({
   id: '/live/$id',
   path: '/live/$id',
   getParentRoute: () => rootRouteImport,
-} as any)
-const LiveIdCameraRoute = LiveIdCameraRouteImport.update({
-  id: '/camera',
-  path: '/camera',
-  getParentRoute: () => LiveIdRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
@@ -106,9 +106,9 @@ export interface FileRoutesByFullPath {
   '/create': typeof AuthenticatedCreateRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
   '/profile': typeof AuthenticatedProfileRoute
-  '/live/$id': typeof LiveIdRouteWithChildren
+  '/camera/$id': typeof CameraIdRoute
+  '/live/$id': typeof LiveIdRoute
   '/live/': typeof LiveIndexRoute
-  '/live/$id/camera': typeof LiveIdCameraRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -121,9 +121,9 @@ export interface FileRoutesByTo {
   '/create': typeof AuthenticatedCreateRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
   '/profile': typeof AuthenticatedProfileRoute
-  '/live/$id': typeof LiveIdRouteWithChildren
+  '/camera/$id': typeof CameraIdRoute
+  '/live/$id': typeof LiveIdRoute
   '/live': typeof LiveIndexRoute
-  '/live/$id/camera': typeof LiveIdCameraRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -138,9 +138,9 @@ export interface FileRoutesById {
   '/_authenticated/create': typeof AuthenticatedCreateRoute
   '/_authenticated/notifications': typeof AuthenticatedNotificationsRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
-  '/live/$id': typeof LiveIdRouteWithChildren
+  '/camera/$id': typeof CameraIdRoute
+  '/live/$id': typeof LiveIdRoute
   '/live/': typeof LiveIndexRoute
-  '/live/$id/camera': typeof LiveIdCameraRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -155,9 +155,9 @@ export interface FileRouteTypes {
     | '/create'
     | '/notifications'
     | '/profile'
+    | '/camera/$id'
     | '/live/$id'
     | '/live/'
-    | '/live/$id/camera'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -170,9 +170,9 @@ export interface FileRouteTypes {
     | '/create'
     | '/notifications'
     | '/profile'
+    | '/camera/$id'
     | '/live/$id'
     | '/live'
-    | '/live/$id/camera'
   id:
     | '__root__'
     | '/'
@@ -186,9 +186,9 @@ export interface FileRouteTypes {
     | '/_authenticated/create'
     | '/_authenticated/notifications'
     | '/_authenticated/profile'
+    | '/camera/$id'
     | '/live/$id'
     | '/live/'
-    | '/live/$id/camera'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -200,7 +200,8 @@ export interface RootRouteChildren {
   EventsRoute: typeof EventsRoute
   GivingRoute: typeof GivingRoute
   MinistriesRoute: typeof MinistriesRoute
-  LiveIdRoute: typeof LiveIdRouteWithChildren
+  CameraIdRoute: typeof CameraIdRoute
+  LiveIdRoute: typeof LiveIdRoute
   LiveIndexRoute: typeof LiveIndexRoute
 }
 
@@ -283,6 +284,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedProfileRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/camera/$id': {
+      id: '/camera/$id'
+      path: '/camera/$id'
+      fullPath: '/camera/$id'
+      preLoaderRoute: typeof CameraIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/live/': {
       id: '/live/'
       path: '/live'
@@ -296,13 +304,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/live/$id'
       preLoaderRoute: typeof LiveIdRouteImport
       parentRoute: typeof rootRouteImport
-    }
-    '/live/$id/camera': {
-      id: '/live/$id/camera'
-      path: '/camera'
-      fullPath: '/live/$id/camera'
-      preLoaderRoute: typeof LiveIdCameraRouteImport
-      parentRoute: typeof LiveIdRoute
     }
   }
 }
@@ -322,17 +323,6 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
 const AuthenticatedRouteRouteWithChildren =
   AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
 
-interface LiveIdRouteChildren {
-  LiveIdCameraRoute: typeof LiveIdCameraRoute
-}
-
-const LiveIdRouteChildren: LiveIdRouteChildren = {
-  LiveIdCameraRoute: LiveIdCameraRoute,
-}
-
-const LiveIdRouteWithChildren =
-  LiveIdRoute._addFileChildren(LiveIdRouteChildren)
-
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
@@ -342,7 +332,8 @@ const rootRouteChildren: RootRouteChildren = {
   EventsRoute: EventsRoute,
   GivingRoute: GivingRoute,
   MinistriesRoute: MinistriesRoute,
-  LiveIdRoute: LiveIdRouteWithChildren,
+  CameraIdRoute: CameraIdRoute,
+  LiveIdRoute: LiveIdRoute,
   LiveIndexRoute: LiveIndexRoute,
 }
 export const routeTree = rootRouteImport
