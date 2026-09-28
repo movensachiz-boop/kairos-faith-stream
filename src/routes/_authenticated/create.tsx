@@ -46,9 +46,25 @@ function CreatePage() {
   const stopBroadcastRef = useRef<null | (() => void)>(null);
   const [viewers, setViewers] = useState(0);
 
+  // Audio mixing: voice + background music -> one audio track sent to viewers
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const voiceGainRef = useRef<GainNode | null>(null);
+  const musicGainRef = useRef<GainNode | null>(null);
+  const musicElRef = useRef<HTMLAudioElement | null>(null);
+  const mixedRef = useRef<MediaStream | null>(null);
+  const [voiceVol, setVoiceVol] = useState(100);
+  const [musicVol, setMusicVol] = useState(25);
+  const [musicName, setMusicName] = useState("");
+  const [musicPlaying, setMusicPlaying] = useState(false);
+
   function stopCamera() {
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
+    musicElRef.current?.pause();
+    setMusicPlaying(false);
+    audioCtxRef.current?.close().catch(() => {});
+    audioCtxRef.current = null;
+    mixedRef.current = null;
     setCameraOn(false);
   }
 
@@ -57,10 +73,74 @@ function CreatePage() {
     stopCamera();
   }, []);
 
+  useEffect(() => {
+    if (voiceGainRef.current) voiceGainRef.current.gain.value = voiceVol / 100;
+  }, [voiceVol]);
+  useEffect(() => {
+    if (musicGainRef.current) musicGainRef.current.gain.value = musicVol / 100;
+  }, [musicVol]);
+
+  function buildMix(stream: MediaStream) {
+    const ctx = new AudioContext();
+    const dest = ctx.createMediaStreamDestination();
+    const voiceGain = ctx.createGain();
+    voiceGain.gain.value = voiceVol / 100;
+    if (stream.getAudioTracks().length) ctx.createMediaStreamSource(stream).connect(voiceGain);
+    voiceGain.connect(dest);
+
+    const musicGain = ctx.createGain();
+    musicGain.gain.value = musicVol / 100;
+    musicGain.connect(dest);
+    musicGain.connect(ctx.destination); // so you can hear the music too
+
+    const el = musicElRef.current ?? new Audio();
+    el.loop = true;
+    musicElRef.current = el;
+    ctx.createMediaElementSource(el).connect(musicGain);
+
+    audioCtxRef.current = ctx;
+    voiceGainRef.current = voiceGain;
+    musicGainRef.current = musicGain;
+    mixedRef.current = new MediaStream([...stream.getVideoTracks(), ...dest.stream.getAudioTracks()]);
+  }
+
+  function pickMusic(file: File | undefined) {
+    if (!file) return;
+    if (!musicElRef.current) musicElRef.current = new Audio();
+    musicElRef.current.src = URL.createObjectURL(file);
+    musicElRef.current.loop = true;
+    setMusicName(file.name);
+    setMusicPlaying(false);
+  }
+
+  async function toggleMusic() {
+    const el = musicElRef.current;
+    if (!el?.src) {
+      toast.error("Choose a song first.");
+      return;
+    }
+    if (!audioCtxRef.current) {
+      toast.error("Start the camera first.");
+      return;
+    }
+    await audioCtxRef.current.resume();
+    if (el.paused) {
+      await el.play();
+      setMusicPlaying(true);
+    } else {
+      el.pause();
+      setMusicPlaying(false);
+    }
+  }
+
   async function startCamera() {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: { echoCancellation: true, noiseSuppression: true },
+      });
       streamRef.current = stream;
+      buildMix(stream);
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         await videoRef.current.play();
