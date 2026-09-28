@@ -64,7 +64,7 @@ function WatchPage() {
         <div className="relative overflow-hidden rounded-2xl glass">
           <video ref={videoRef} playsInline muted={muted} className="aspect-video w-full bg-ink object-cover" />
           {!ended && status === "playing" ? (
-            <span className="absolute left-3 top-3 flex items-center gap-2 rounded-full bg-live px-3 py-1 text-xs font-bold text-white">
+            <span className="absolute left-3 top-3 flex items-center gap-2 rounded-md bg-live px-3 py-1 text-xs font-bold text-destructive-foreground">
               <span className="live-dot" /> LIVE
             </span>
           ) : null}

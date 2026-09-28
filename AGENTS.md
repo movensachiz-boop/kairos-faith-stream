@@ -14,4 +14,5 @@
 - Ministries are the tenant boundary: every shared record (posts, events, streams, gifts) carries `ministry_id`, and leader-only writes go through the `public.is_ministry_leader()` security-definer function so RLS stays non-recursive.
 - Roles live in `public.user_roles` + `public.has_role()`, never on `profiles`, to prevent privilege escalation.
 - Data access is client-side: routes call the browser Supabase client through TanStack Query helpers in `src/lib/kairos.ts`; RLS is the only authorization layer.
-- All pages render inside `src/components/layout/AppShell.tsx`; visual styling uses the frosted-glass tokens/utilities in `src/styles.css` (no hardcoded colors).
+- All pages render inside `src/components/layout/AppShell.tsx`; visual styling uses the white/soft-green/red semantic tokens in `src/styles.css`, with flat surfaces and no decorative effects.
+- Multi-camera live uses ephemeral Realtime/WebRTC pairing: Camera 1 owns audio, Cameras 2–3 send video only, and no pairing state is persisted.

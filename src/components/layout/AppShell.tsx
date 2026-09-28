@@ -1,6 +1,7 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import type { ReactNode } from "react";
+import { Bell, BookOpen, CircleUserRound, House, Plus, Radio } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth, initials } from "@/hooks/useAuth";
 
@@ -13,13 +14,6 @@ const desktopNav = [
   { to: "/ministries", label: "Ministries" },
   { to: "/events", label: "Events" },
   { to: "/giving", label: "Giving" },
-] as const;
-
-const mobileNav = [
-  { to: "/", label: "Home", icon: "🏠" },
-  { to: "/live", label: "Live", icon: "🔴" },
-  { to: "/bible", label: "Bible", icon: "📖" },
-  { to: "/profile", label: "Profile", icon: "👤" },
 ] as const;
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -37,9 +31,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen w-full pb-28 lg:pb-8">
       <header className="sticky top-0 z-30 px-4 pt-4">
-        <div className="glass-strong mx-auto flex max-w-7xl items-center gap-4 rounded-2xl px-4 py-3">
+        <div className="glass-strong mx-auto flex max-w-7xl items-center gap-4 rounded-md px-4 py-3">
           <Link to="/" className="flex shrink-0 items-center gap-2.5">
-            <span className="brand-mark grid size-9 place-items-center rounded-xl font-display text-lg font-bold text-ink">
+            <span className="brand-mark grid size-9 place-items-center rounded-md font-display text-lg font-bold text-primary-foreground">
               K
             </span>
             <span className="leading-none">
@@ -71,13 +65,13 @@ export function AppShell({ children }: { children: ReactNode }) {
               className="glass grid size-9 place-items-center rounded-full text-muted-foreground"
               aria-label="Notifications"
             >
-              🔔
+              <Bell className="size-4" />
             </Link>
             {isAuthenticated ? (
               <>
                 <Link
                   to="/profile"
-                  className="brand-cool grid size-9 place-items-center rounded-full text-xs font-semibold"
+                  className="brand-cool grid size-9 place-items-center rounded-full text-xs font-semibold text-secondary-foreground"
                 >
                   {initials(user?.user_metadata?.['display_name'] ?? user?.email)}
                 </Link>
@@ -91,7 +85,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             ) : (
               <Link
                 to="/auth"
-                className="brand-mark rounded-lg px-4 py-2 text-xs font-semibold text-ink"
+                className="brand-mark rounded-md px-4 py-2 text-xs font-semibold text-primary-foreground"
               >
                 Sign in
               </Link>
@@ -103,31 +97,24 @@ export function AppShell({ children }: { children: ReactNode }) {
       <main className="mx-auto max-w-7xl px-4 py-6">{children}</main>
 
       <nav className="fixed inset-x-0 bottom-0 z-30 px-4 pb-4 lg:hidden">
-        <div className="glass-strong flex items-center justify-between rounded-2xl px-2 py-2">
-          {mobileNav.slice(0, 2).map((item) => (
-            <Link
-              key={item.to}
-              to={item.to}
-              className="flex flex-col items-center gap-0.5 text-[10px] text-muted-foreground"
-              activeProps={{ className: "text-foreground" }}
-            >
-              <span>{item.icon}</span>
-              <span>{item.label}</span>
-            </Link>
-          ))}
+        <div className="glass-strong flex items-center justify-between rounded-md px-3 py-2">
+          <Link to="/" className="flex flex-col items-center gap-0.5 text-[10px] text-muted-foreground" activeProps={{ className: "text-primary" }}>
+            <House className="size-4" /><span>Home</span>
+          </Link>
+          <Link to="/live" className="flex flex-col items-center gap-0.5 text-[10px] text-muted-foreground" activeProps={{ className: "text-destructive" }}>
+            <Radio className="size-4" /><span>Live</span>
+          </Link>
           <Link to="/bible" className="flex flex-col items-center gap-0.5 text-[10px] text-muted-foreground">
-            <span>📖</span>
-            <span>Bible</span>
+            <BookOpen className="size-4" /><span>Bible</span>
           </Link>
           <Link to="/create" className="flex flex-col items-center gap-0.5 text-[10px]">
-            <span className="brand-mark -mt-6 grid size-9 place-items-center rounded-full font-bold text-ink">
-              +
+            <span className="brand-mark -mt-6 grid size-9 place-items-center rounded-full font-bold text-primary-foreground">
+              <Plus className="size-4" />
             </span>
             <span>Create</span>
           </Link>
           <Link to="/profile" className="flex flex-col items-center gap-0.5 text-[10px] text-muted-foreground">
-            <span>👤</span>
-            <span>Profile</span>
+            <CircleUserRound className="size-4" /><span>Profile</span>
           </Link>
         </div>
       </nav>
@@ -149,7 +136,7 @@ export function SectionCard({
   tone?: "glass" | "give";
 }) {
   return (
-    <section className={`${tone === "give" ? "glass-give" : "glass"} rounded-3xl p-5`}>
+    <section className={`${tone === "give" ? "glass-give" : "glass"} rounded-md p-5`}>
       <div className="mb-3 flex items-center gap-2">
         {icon ? <span className="text-base">{icon}</span> : null}
         <h2 className="font-display text-sm font-semibold tracking-wide">{title}</h2>
