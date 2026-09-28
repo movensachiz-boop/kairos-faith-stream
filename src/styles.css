@@ -5,8 +5,8 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * KAIROS APP design system — "Frosted Glass"
- * Deep midnight scene with azure/violet/gold aurora and frosted glass surfaces.
+ * KAIROS APP design system — clean broadcast interface.
+ * White leads, soft green supports, and red is reserved for live/error states.
  * All colors are semantic tokens in oklch. Never hardcode colors in components.
  */
 
@@ -66,43 +66,43 @@
   --font-display-family: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
   --font-body-family: "Inter", ui-sans-serif, system-ui, sans-serif;
 
-  --ink: oklch(0.18 0.043 264);
-  --azure: oklch(0.63 0.19 259);
-  --violet: oklch(0.61 0.21 293);
-  --gold: oklch(0.85 0.13 88);
-  --live: oklch(0.63 0.23 27);
+  --ink: oklch(0.28 0.07 155);
+  --azure: oklch(0.62 0.15 151);
+  --violet: oklch(0.72 0.12 151);
+  --gold: oklch(0.67 0.14 151);
+  --live: oklch(0.58 0.22 27);
 
-  --background: oklch(0.18 0.043 264);
-  --foreground: oklch(0.98 0.005 260);
-  --card: oklch(0.23 0.04 264);
-  --card-foreground: oklch(0.98 0.005 260);
-  --popover: oklch(0.21 0.04 264);
-  --popover-foreground: oklch(0.98 0.005 260);
-  --primary: oklch(0.63 0.19 259);
-  --primary-foreground: oklch(0.98 0.005 260);
-  --secondary: oklch(0.28 0.04 264);
-  --secondary-foreground: oklch(0.98 0.005 260);
-  --muted: oklch(0.28 0.04 264);
-  --muted-foreground: oklch(0.74 0.02 260);
-  --accent: oklch(0.61 0.21 293);
-  --accent-foreground: oklch(0.98 0.005 260);
-  --destructive: oklch(0.63 0.23 27);
-  --destructive-foreground: oklch(0.98 0.005 260);
-  --border: oklch(0.98 0.005 260 / 14%);
-  --input: oklch(0.98 0.005 260 / 16%);
-  --ring: oklch(0.63 0.19 259);
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.28 0.07 155);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.28 0.07 155);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.28 0.07 155);
+  --primary: oklch(0.66 0.15 151);
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.96 0.025 151);
+  --secondary-foreground: oklch(0.34 0.08 155);
+  --muted: oklch(0.97 0.015 151);
+  --muted-foreground: oklch(0.48 0.06 155);
+  --accent: oklch(0.70 0.14 151);
+  --accent-foreground: oklch(1 0 0);
+  --destructive: oklch(0.58 0.22 27);
+  --destructive-foreground: oklch(1 0 0);
+  --border: oklch(0.88 0.035 151);
+  --input: oklch(0.88 0.035 151);
+  --ring: oklch(0.66 0.15 151);
 
-  --sidebar: oklch(0.21 0.04 264);
-  --sidebar-foreground: oklch(0.98 0.005 260);
-  --sidebar-primary: oklch(0.63 0.19 259);
-  --sidebar-primary-foreground: oklch(0.98 0.005 260);
-  --sidebar-accent: oklch(0.28 0.04 264);
-  --sidebar-accent-foreground: oklch(0.98 0.005 260);
-  --sidebar-border: oklch(0.98 0.005 260 / 12%);
-  --sidebar-ring: oklch(0.63 0.19 259);
+  --sidebar: oklch(1 0 0);
+  --sidebar-foreground: oklch(0.28 0.07 155);
+  --sidebar-primary: oklch(0.66 0.15 151);
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent: oklch(0.96 0.025 151);
+  --sidebar-accent-foreground: oklch(0.34 0.08 155);
+  --sidebar-border: oklch(0.88 0.035 151);
+  --sidebar-ring: oklch(0.66 0.15 151);
 
-  --gradient-brand: linear-gradient(135deg, var(--gold), var(--violet));
-  --gradient-cool: linear-gradient(135deg, var(--azure), var(--violet));
+  --gradient-brand: var(--primary);
+  --gradient-cool: var(--secondary);
 }
 
 .dark {
@@ -118,35 +118,23 @@
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-body-family);
-    background-image:
-      radial-gradient(1200px 600px at 15% -10%, color-mix(in oklab, var(--azure) 35%, transparent), transparent 60%),
-      radial-gradient(1000px 700px at 100% 0%, color-mix(in oklab, var(--violet) 30%, transparent), transparent 55%),
-      radial-gradient(900px 900px at 50% 120%, color-mix(in oklab, var(--gold) 18%, transparent), transparent 60%);
-    background-attachment: fixed;
     min-height: 100vh;
   }
 }
 
 @utility glass {
-  background: color-mix(in oklab, var(--foreground) 6%, transparent);
-  border: 1px solid color-mix(in oklab, var(--foreground) 12%, transparent);
-  backdrop-filter: blur(18px);
+  background: var(--background);
+  border: 1px solid var(--border);
 }
 
 @utility glass-strong {
-  background: color-mix(in oklab, var(--foreground) 10%, transparent);
-  border: 1px solid color-mix(in oklab, var(--foreground) 18%, transparent);
-  backdrop-filter: blur(24px);
+  background: var(--background);
+  border: 1px solid var(--border);
 }
 
 @utility glass-give {
-  background: linear-gradient(
-    135deg,
-    color-mix(in oklab, var(--gold) 22%, transparent),
-    color-mix(in oklab, var(--violet) 18%, transparent)
-  );
-  border: 1px solid color-mix(in oklab, var(--gold) 45%, transparent);
-  backdrop-filter: blur(20px);
+  background: var(--secondary);
+  border: 1px solid var(--primary);
 }
 
 @utility brand-mark {
@@ -158,15 +146,5 @@
 }
 
 @utility live-dot {
-  animation: kairos-pulse 1.6s ease-in-out infinite;
-}
-
-@keyframes kairos-pulse {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.35;
-  }
+  opacity: 1;
 }
