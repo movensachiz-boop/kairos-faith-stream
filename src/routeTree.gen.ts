@@ -22,6 +22,7 @@ import { Route as AuthenticatedNotificationsRouteImport } from './routes/_authen
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
 import { Route as LiveIndexRouteImport } from './routes/live.index'
 import { Route as LiveIdRouteImport } from './routes/live.$id'
+import { Route as LiveIdCameraRouteImport } from './routes/live.$id.camera'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -88,6 +89,11 @@ const LiveIdRoute = LiveIdRouteImport.update({
   path: '/live/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LiveIdCameraRoute = LiveIdCameraRouteImport.update({
+  id: '/camera',
+  path: '/camera',
+  getParentRoute: () => LiveIdRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -100,8 +106,9 @@ export interface FileRoutesByFullPath {
   '/create': typeof AuthenticatedCreateRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
   '/profile': typeof AuthenticatedProfileRoute
-  '/live/$id': typeof LiveIdRoute
+  '/live/$id': typeof LiveIdRouteWithChildren
   '/live/': typeof LiveIndexRoute
+  '/live/$id/camera': typeof LiveIdCameraRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -114,8 +121,9 @@ export interface FileRoutesByTo {
   '/create': typeof AuthenticatedCreateRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
   '/profile': typeof AuthenticatedProfileRoute
-  '/live/$id': typeof LiveIdRoute
+  '/live/$id': typeof LiveIdRouteWithChildren
   '/live': typeof LiveIndexRoute
+  '/live/$id/camera': typeof LiveIdCameraRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -130,8 +138,9 @@ export interface FileRoutesById {
   '/_authenticated/create': typeof AuthenticatedCreateRoute
   '/_authenticated/notifications': typeof AuthenticatedNotificationsRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
-  '/live/$id': typeof LiveIdRoute
+  '/live/$id': typeof LiveIdRouteWithChildren
   '/live/': typeof LiveIndexRoute
+  '/live/$id/camera': typeof LiveIdCameraRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -148,6 +157,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/live/$id'
     | '/live/'
+    | '/live/$id/camera'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -162,6 +172,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/live/$id'
     | '/live'
+    | '/live/$id/camera'
   id:
     | '__root__'
     | '/'
@@ -177,6 +188,7 @@ export interface FileRouteTypes {
     | '/_authenticated/profile'
     | '/live/$id'
     | '/live/'
+    | '/live/$id/camera'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -188,7 +200,7 @@ export interface RootRouteChildren {
   EventsRoute: typeof EventsRoute
   GivingRoute: typeof GivingRoute
   MinistriesRoute: typeof MinistriesRoute
-  LiveIdRoute: typeof LiveIdRoute
+  LiveIdRoute: typeof LiveIdRouteWithChildren
   LiveIndexRoute: typeof LiveIndexRoute
 }
 
@@ -285,6 +297,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LiveIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/live/$id/camera': {
+      id: '/live/$id/camera'
+      path: '/camera'
+      fullPath: '/live/$id/camera'
+      preLoaderRoute: typeof LiveIdCameraRouteImport
+      parentRoute: typeof LiveIdRoute
+    }
   }
 }
 
@@ -303,6 +322,17 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
 const AuthenticatedRouteRouteWithChildren =
   AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
 
+interface LiveIdRouteChildren {
+  LiveIdCameraRoute: typeof LiveIdCameraRoute
+}
+
+const LiveIdRouteChildren: LiveIdRouteChildren = {
+  LiveIdCameraRoute: LiveIdCameraRoute,
+}
+
+const LiveIdRouteWithChildren =
+  LiveIdRoute._addFileChildren(LiveIdRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
@@ -312,7 +342,7 @@ const rootRouteChildren: RootRouteChildren = {
   EventsRoute: EventsRoute,
   GivingRoute: GivingRoute,
   MinistriesRoute: MinistriesRoute,
-  LiveIdRoute: LiveIdRoute,
+  LiveIdRoute: LiveIdRouteWithChildren,
   LiveIndexRoute: LiveIndexRoute,
 }
 export const routeTree = rootRouteImport

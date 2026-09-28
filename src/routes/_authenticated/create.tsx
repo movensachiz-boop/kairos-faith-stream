@@ -2,11 +2,14 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import QRCode from "qrcode";
+import { Camera, Check, Link2, Radio, Smartphone } from "lucide-react";
 import { AppShell, SectionCard } from "@/components/layout/AppShell";
+import { Button } from "@/components/ui/button";
 import { ministriesQuery } from "@/lib/kairos";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { startHost } from "@/lib/broadcast";
+import { startHost, type CameraSlot, type CameraStatus, type HostController } from "@/lib/broadcast";
 import { LiveComments } from "@/components/live/LiveComments";
 
 export const Route = createFileRoute("/_authenticated/create")({
@@ -44,8 +47,16 @@ function CreatePage() {
   const [cameraOn, setCameraOn] = useState(false);
   const [liveId, setLiveId] = useState<string | null>(null);
   const [liveTitle, setLiveTitle] = useState("");
-  const stopBroadcastRef = useRef<null | (() => void)>(null);
+  const hostRef = useRef<HostController | null>(null);
   const [viewers, setViewers] = useState(0);
+  const [activeCamera, setActiveCamera] = useState<1 | CameraSlot>(1);
+  const cameraTokensRef = useRef<Record<CameraSlot, string>>({ 2: crypto.randomUUID(), 3: crypto.randomUUID() });
+  const camera2Ref = useRef<HTMLVideoElement | null>(null);
+  const camera3Ref = useRef<HTMLVideoElement | null>(null);
+  const [cameraStatus, setCameraStatus] = useState<Record<CameraSlot, CameraStatus>>({
+    2: "waiting",
+    3: "waiting",
+  });
 
   // Audio mixing: voice + background music -> one audio track sent to viewers
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -70,7 +81,7 @@ function CreatePage() {
   }
 
   useEffect(() => () => {
-    stopBroadcastRef.current?.();
+    hostRef.current?.stop();
     stopCamera();
   }, []);
 
@@ -199,7 +210,20 @@ function CreatePage() {
       return;
     }
     setLiveId(data.id);
-    stopBroadcastRef.current = startHost(data.id, mixedRef.current ?? streamRef.current, setViewers);
+    hostRef.current = startHost(
+      data.id,
+      mixedRef.current ?? streamRef.current,
+      cameraTokensRef.current,
+      setViewers,
+      (slot, remoteStream, status) => {
+        setCameraStatus((current) => ({ ...current, [slot]: status }));
+        const element = slot === 2 ? camera2Ref.current : camera3Ref.current;
+        if (element) {
+          element.srcObject = remoteStream;
+          if (remoteStream) void element.play().catch(() => {});
+        }
+      },
+    );
     queryClient.invalidateQueries({ queryKey: ["live-streams"] });
     toast.success("You are live!");
   }
@@ -213,14 +237,21 @@ function CreatePage() {
       toast.error(error.message);
       return;
     }
-    stopBroadcastRef.current?.();
-    stopBroadcastRef.current = null;
+    hostRef.current?.stop();
+    hostRef.current = null;
     setViewers(0);
+    setActiveCamera(1);
+    setCameraStatus({ 2: "waiting", 3: "waiting" });
     setLiveId(null);
     stopCamera();
     queryClient.invalidateQueries({ queryKey: ["live-streams"] });
     toast.success("Live ended.");
     navigate({ to: "/live" });
+  }
+
+  async function selectCamera(slot: 1 | CameraSlot) {
+    await hostRef.current?.useCamera(slot);
+    setActiveCamera(slot);
   }
 
   async function submit(e: React.FormEvent) {
@@ -281,10 +312,10 @@ function CreatePage() {
 
           {tab === "live" ? (
             <div className="space-y-3">
-              <div className="relative overflow-hidden rounded-xl">
+              <div className="relative overflow-hidden rounded-md border border-border">
                 <video ref={videoRef} muted playsInline className="aspect-video w-full bg-ink object-cover" />
                 {liveId ? (
-                  <span className="absolute left-3 top-3 flex items-center gap-2 rounded-full bg-live px-3 py-1 text-xs font-bold text-white">
+                  <span className="absolute left-3 top-3 flex items-center gap-2 rounded-md bg-live px-3 py-1 text-xs font-bold text-destructive-foreground">
                     <span className="live-dot" /> LIVE · {viewers} watching
                   </span>
                 ) : null}
@@ -294,6 +325,53 @@ function CreatePage() {
                   </div>
                 ) : null}
               </div>
+
+              {liveId ? (
+                <div className="space-y-3 border-y border-border py-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <h3 className="font-display text-sm font-semibold">Camera control</h3>
+                      <p className="text-xs text-muted-foreground">Switch the video shot. Camera 1 always supplies sound.</p>
+                    </div>
+                    <span className="rounded-md bg-secondary px-2 py-1 text-xs font-semibold text-primary">
+                      Camera {activeCamera} on air
+                    </span>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <CameraTile
+                      slot={1}
+                      active={activeCamera === 1}
+                      connected
+                      preview={<video muted playsInline ref={(node) => {
+                        if (node && streamRef.current) {
+                          node.srcObject = streamRef.current;
+                          void node.play().catch(() => {});
+                        }
+                      }} className="h-full w-full object-cover" />}
+                      onSelect={() => selectCamera(1)}
+                    />
+                    <CameraTile
+                      slot={2}
+                      active={activeCamera === 2}
+                      connected={cameraStatus[2] === "connected"}
+                      preview={<video ref={camera2Ref} muted playsInline className="h-full w-full object-cover" />}
+                      onSelect={() => selectCamera(2)}
+                    />
+                    <CameraTile
+                      slot={3}
+                      active={activeCamera === 3}
+                      connected={cameraStatus[3] === "connected"}
+                      preview={<video ref={camera3Ref} muted playsInline className="h-full w-full object-cover" />}
+                      onSelect={() => selectCamera(3)}
+                    />
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <PairingQR streamId={liveId} slot={2} token={cameraTokensRef.current[2]} status={cameraStatus[2]} />
+                    <PairingQR streamId={liveId} slot={3} token={cameraTokensRef.current[3]} status={cameraStatus[3]} />
+                  </div>
+                </div>
+              ) : null}
 
               <input
                 value={liveTitle}
@@ -343,7 +421,7 @@ function CreatePage() {
                 )}
               </div>
 
-              <div className="glass space-y-3 rounded-xl p-4">
+              <div className="glass space-y-3 rounded-md p-4">
                 <h3 className="font-display text-sm font-semibold">🎵 Background music</h3>
                 <div className="flex flex-wrap items-center gap-2">
                   <label className="glass cursor-pointer rounded-lg px-3 py-2 text-xs font-semibold text-azure">
@@ -395,9 +473,8 @@ function CreatePage() {
               {liveId ? <LiveComments streamId={liveId} /> : null}
 
               <p className="text-xs text-muted-foreground">
-                When you go live, your video is broadcast to anyone who opens your stream on the Live page. Video goes
-                straight from your device to each viewer, so it works best for around 10–20 viewers. Keep this page open
-                while live.
+                When you go live, viewers receive the selected camera shot and Camera 1 sound. Scan the QR cards with up
+                to two more phones, then keep this page open while broadcasting. Best for around 10–20 viewers.
               </p>
             </div>
           ) : (
@@ -483,5 +560,91 @@ function CreatePage() {
         </SectionCard>
       </div>
     </AppShell>
+  );
+}
+
+function CameraTile({
+  slot,
+  active,
+  connected,
+  preview,
+  onSelect,
+}: {
+  slot: 1 | CameraSlot;
+  active: boolean;
+  connected: boolean;
+  preview: React.ReactNode;
+  onSelect: () => void;
+}) {
+  return (
+    <div className={`overflow-hidden rounded-md border ${active ? "border-primary" : "border-border"}`}>
+      <div className="relative aspect-video bg-secondary">
+        {preview}
+        {!connected ? (
+          <div className="absolute inset-0 grid place-items-center text-muted-foreground"><Smartphone className="size-6" /></div>
+        ) : null}
+        {active ? (
+          <span className="absolute left-2 top-2 flex items-center gap-1 rounded-md bg-primary px-2 py-1 text-[10px] font-semibold text-primary-foreground">
+            <Radio className="size-3" /> ON AIR
+          </span>
+        ) : null}
+      </div>
+      <div className="flex items-center justify-between gap-2 p-2">
+        <span className="text-xs font-semibold">Camera {slot}</span>
+        <Button type="button" size="sm" variant={active ? "secondary" : "outline"} disabled={!connected || active} onClick={onSelect}>
+          {active ? <><Check /> Live</> : "Use shot"}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function PairingQR({
+  streamId,
+  slot,
+  token,
+  status,
+}: {
+  streamId: string;
+  slot: CameraSlot;
+  token: string;
+  status: CameraStatus;
+}) {
+  const [qr, setQr] = useState("");
+  const [link, setLink] = useState("");
+
+  useEffect(() => {
+    const cameraLink = `${window.location.origin}/live/${streamId}/camera?slot=${slot}&token=${encodeURIComponent(token)}`;
+    setLink(cameraLink);
+    void QRCode.toDataURL(cameraLink, { width: 220, margin: 1 }).then(setQr);
+  }, [slot, streamId, token]);
+
+  async function copyLink() {
+    await navigator.clipboard.writeText(link);
+    toast.success(`Camera ${slot} link copied.`);
+  }
+
+  return (
+    <div className="rounded-md border border-border p-3">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <Smartphone className="size-4" />
+          <span className="text-sm font-semibold">Connect Camera {slot}</span>
+        </div>
+        <span className={`text-xs font-medium ${status === "connected" ? "text-primary" : "text-muted-foreground"}`}>
+          {status === "connected" ? "Connected" : status === "connecting" ? "Connecting" : "Scan QR"}
+        </span>
+      </div>
+      {status === "connected" ? (
+        <div className="mt-3 flex h-28 items-center justify-center gap-2 bg-secondary text-sm text-primary">
+          <Check className="size-5" /> Camera ready
+        </div>
+      ) : qr ? (
+        <div className="mt-3 flex justify-center bg-background p-2"><img src={qr} alt={`QR code for Camera ${slot}`} className="size-32" /></div>
+      ) : null}
+      <Button type="button" variant="outline" size="sm" className="mt-3 w-full" onClick={copyLink}>
+        <Link2 /> Copy camera link
+      </Button>
+    </div>
   );
 }
