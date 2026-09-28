@@ -74,6 +74,8 @@ function CreatePage() {
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
     musicElRef.current?.pause();
+    musicElRef.current = null;
+    musicSourceRef.current = null;
     setMusicPlaying(false);
     audioCtxRef.current?.close().catch(() => {});
     audioCtxRef.current = null;
