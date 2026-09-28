@@ -4,12 +4,12 @@ import { Camera, CameraOff, CheckCircle2, Radio } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { joinAsRemoteCamera, type CameraSlot, type CameraStatus } from "@/lib/broadcast";
 
-type CameraSearch = { slot?: number; token?: string };
+type CameraSearch = { slot: number | undefined; token: string | undefined };
 
 export const Route = createFileRoute("/camera/$id")({
   validateSearch: (search: Record<string, unknown>): CameraSearch => ({
-    slot: Number(search.slot) || undefined,
-    token: typeof search.token === "string" ? search.token : undefined,
+    slot: Number(search["slot"]) || undefined,
+    token: typeof search["token"] === "string" ? search["token"] : undefined,
   }),
   head: () => ({
     meta: [

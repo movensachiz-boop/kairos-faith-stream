@@ -414,7 +414,7 @@ function CreatePage() {
                   <button
                     onClick={endLive}
                     disabled={busy}
-                    className="flex-1 rounded-xl bg-live py-3 text-sm font-semibold text-white disabled:opacity-60"
+                    className="flex-1 rounded-xl bg-live py-3 text-sm font-semibold text-destructive-foreground disabled:opacity-60"
                   >
                     {busy ? "Ending…" : "End live"}
                   </button>
