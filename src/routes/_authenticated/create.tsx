@@ -7,6 +7,7 @@ import { ministriesQuery } from "@/lib/kairos";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { startHost } from "@/lib/broadcast";
+import { LiveComments } from "@/components/live/LiveComments";
 
 export const Route = createFileRoute("/_authenticated/create")({
   head: () => ({
@@ -198,7 +199,7 @@ function CreatePage() {
       return;
     }
     setLiveId(data.id);
-    stopBroadcastRef.current = startHost(data.id, streamRef.current, setViewers);
+    stopBroadcastRef.current = startHost(data.id, mixedRef.current ?? streamRef.current, setViewers);
     queryClient.invalidateQueries({ queryKey: ["live-streams"] });
     toast.success("You are live!");
   }
@@ -341,6 +342,57 @@ function CreatePage() {
                   </button>
                 )}
               </div>
+
+              <div className="glass space-y-3 rounded-xl p-4">
+                <h3 className="font-display text-sm font-semibold">🎵 Background music</h3>
+                <div className="flex flex-wrap items-center gap-2">
+                  <label className="glass cursor-pointer rounded-lg px-3 py-2 text-xs font-semibold text-azure">
+                    Choose song
+                    <input
+                      type="file"
+                      accept="audio/*"
+                      className="hidden"
+                      onChange={(e) => pickMusic(e.target.files?.[0])}
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    onClick={toggleMusic}
+                    className="glass rounded-lg px-3 py-2 text-xs font-semibold"
+                  >
+                    {musicPlaying ? "⏸ Pause music" : "▶ Play music"}
+                  </button>
+                  <span className="truncate text-xs text-muted-foreground">{musicName || "No song chosen"}</span>
+                </div>
+                <label className="block text-xs text-muted-foreground">
+                  Music volume · {musicVol}%
+                  <input
+                    type="range"
+                    min={0}
+                    max={100}
+                    value={musicVol}
+                    onChange={(e) => setMusicVol(Number(e.target.value))}
+                    className="mt-1 w-full accent-gold"
+                  />
+                </label>
+                <label className="block text-xs text-muted-foreground">
+                  Your voice volume · {voiceVol}%
+                  <input
+                    type="range"
+                    min={0}
+                    max={200}
+                    value={voiceVol}
+                    onChange={(e) => setVoiceVol(Number(e.target.value))}
+                    className="mt-1 w-full accent-azure"
+                  />
+                </label>
+                <p className="text-xs text-muted-foreground">
+                  Keep music low (around 15–30%) so your voice is clearly heard. Headphones stop the music echoing
+                  into your microphone.
+                </p>
+              </div>
+
+              {liveId ? <LiveComments streamId={liveId} /> : null}
 
               <p className="text-xs text-muted-foreground">
                 When you go live, your video is broadcast to anyone who opens your stream on the Live page. Video goes
