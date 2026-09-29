@@ -68,7 +68,7 @@ export function VersePanel({ active, onShow, onClear }: {
       <div className="relative aspect-video overflow-hidden rounded-md bg-foreground">
         <img src={(themes[theme] ?? firstTheme)?.url} alt="Selected verse backdrop" className="absolute inset-0 h-full w-full object-cover brightness-50" />
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-8 text-center text-background">
-          <p className="max-h-[65%] w-full overflow-hidden break-words font-verse text-base leading-snug sm:text-2xl">{text || "Your verse appears here"}</p>
+          <p className="max-h-[65%] w-full overflow-hidden break-words font-verse font-bold text-base leading-snug sm:text-2xl">{text || "Your verse appears here"}</p>
           <p className="font-verse text-xs font-bold sm:text-base">{reference}</p>
         </div>
       </div>
