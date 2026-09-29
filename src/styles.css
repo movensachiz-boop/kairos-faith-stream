@@ -36,6 +36,7 @@
   --font-body: var(--font-body-family);
   --font-sans: var(--font-body-family);
   --font-verse: "Mont Verse", sans-serif;
+  --font-verse-heavy: "Mont Verse Heavy", sans-serif;
 
   --color-background: var(--background);
   --color-foreground: var(--foreground);
