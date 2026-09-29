@@ -38,6 +38,7 @@ export type HostController = {
   useCamera: (slot: 1 | CameraSlot) => Promise<void>;
   showVerse: (slide: VerseSlide | null) => Promise<void>;
   verseCanvas: HTMLCanvasElement;
+  finishRecording: () => Promise<Blob | null>;
 };
 
 export function startHost(
@@ -178,6 +179,55 @@ export function startHost(
     })
     .subscribe();
 
+  // Recording: draw whatever viewers see onto a canvas and record it with the host audio.
+  const recCanvas = document.createElement("canvas");
+  recCanvas.width = 1280;
+  recCanvas.height = 720;
+  const recCtx = recCanvas.getContext("2d");
+  const recVideo = document.createElement("video");
+  recVideo.muted = true;
+  recVideo.playsInline = true;
+  let recTrack: MediaStreamTrack | null = null;
+  const drawTimer = window.setInterval(() => {
+    if (activeVideo !== recTrack) {
+      recTrack = activeVideo;
+      recVideo.srcObject = activeVideo ? new MediaStream([activeVideo]) : null;
+      void recVideo.play().catch(() => {});
+    }
+    if (!recCtx) return;
+    recCtx.fillStyle = "#000";
+    recCtx.fillRect(0, 0, 1280, 720);
+    const w = recVideo.videoWidth, h = recVideo.videoHeight;
+    if (w && h) {
+      const scale = Math.min(1280 / w, 720 / h);
+      recCtx.drawImage(recVideo, (1280 - w * scale) / 2, (720 - h * scale) / 2, w * scale, h * scale);
+    }
+  }, 1000 / 30);
+  const chunks: Blob[] = [];
+  let recorder: MediaRecorder | null = null;
+  try {
+    const recStream = new MediaStream([...recCanvas.captureStream(30).getVideoTracks(), ...media.getAudioTracks()]);
+    const mimeType = ["video/mp4", "video/webm;codecs=vp9,opus", "video/webm"].find((t) => MediaRecorder.isTypeSupported(t));
+    recorder = new MediaRecorder(recStream, mimeType ? { mimeType } : undefined);
+    recorder.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
+    recorder.start(1000);
+  } catch {
+    recorder = null;
+  }
+
+  function finishRecording(): Promise<Blob | null> {
+    window.clearInterval(drawTimer);
+    return new Promise((resolve) => {
+      if (!recorder || recorder.state === "inactive") {
+        resolve(chunks.length ? new Blob(chunks, { type: chunks[0]?.type || "video/webm" }) : null);
+        return;
+      }
+      const r = recorder;
+      r.onstop = () => resolve(chunks.length ? new Blob(chunks, { type: r.mimeType || "video/webm" }) : null);
+      r.stop();
+    });
+  }
+
   function stop() {
     verseStage.stop();
     void sendViewer({ type: "end" });
@@ -193,7 +243,7 @@ export function startHost(
     }, 300);
   }
 
-  return { stop, useCamera, showVerse, verseCanvas: verseStage.canvas };
+  return { stop, useCamera, showVerse, verseCanvas: verseStage.canvas, finishRecording };
 }
 
 export function joinAsViewer(streamId: string, onStream: (stream: MediaStream) => void, onEnd: () => void) {

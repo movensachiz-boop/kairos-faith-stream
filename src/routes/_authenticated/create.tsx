@@ -54,6 +54,7 @@ function CreatePage() {
   const [activeCamera, setActiveCamera] = useState<1 | CameraSlot>(1);
   const [showCameraGrid, setShowCameraGrid] = useState(false);
   const [verseOnScreen, setVerseOnScreen] = useState(false);
+  const [recording, setRecording] = useState<{ url: string; name: string } | null>(null);
   const cameraTokensRef = useRef<Record<CameraSlot, string>>({ 2: crypto.randomUUID(), 3: crypto.randomUUID() });
   const camera2Ref = useRef<HTMLVideoElement | null>(null);
   const camera3Ref = useRef<HTMLVideoElement | null>(null);
@@ -253,6 +254,7 @@ function CreatePage() {
       toast.error(error.message);
       return;
     }
+    const blob = await hostRef.current?.finishRecording().catch(() => null);
     hostRef.current?.stop();
     hostRef.current = null;
     setViewers(0);
@@ -263,6 +265,14 @@ function CreatePage() {
     setLiveId(null);
     stopCamera();
     queryClient.invalidateQueries({ queryKey: ["live-streams"] });
+    if (blob) {
+      if (recording) URL.revokeObjectURL(recording.url);
+      const ext = blob.type.includes("mp4") ? "mp4" : "webm";
+      const safe = (liveTitle || "kairos-live").replace(/[^a-z0-9]+/gi, "-").toLowerCase();
+      setRecording({ url: URL.createObjectURL(blob), name: `${safe}.${ext}` });
+      toast.success("Live ended. Your recording is ready to download.");
+      return;
+    }
     toast.success("Live ended.");
     navigate({ to: "/live" });
   }
