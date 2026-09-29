@@ -11,6 +11,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { startHost, type CameraSlot, type CameraStatus, type HostController } from "@/lib/broadcast";
 import { LiveComments } from "@/components/live/LiveComments";
+import { VersePanel } from "@/components/live/VersePanel";
+import type { VerseSlide } from "@/lib/verse-stage";
 
 export const Route = createFileRoute("/_authenticated/create")({
   head: () => ({
@@ -50,6 +52,8 @@ function CreatePage() {
   const hostRef = useRef<HostController | null>(null);
   const [viewers, setViewers] = useState(0);
   const [activeCamera, setActiveCamera] = useState<1 | CameraSlot>(1);
+  const [showCameraGrid, setShowCameraGrid] = useState(false);
+  const [verseOnScreen, setVerseOnScreen] = useState(false);
   const cameraTokensRef = useRef<Record<CameraSlot, string>>({ 2: crypto.randomUUID(), 3: crypto.randomUUID() });
   const camera2Ref = useRef<HTMLVideoElement | null>(null);
   const camera3Ref = useRef<HTMLVideoElement | null>(null);
@@ -91,6 +95,13 @@ function CreatePage() {
   useEffect(() => {
     if (voiceGainRef.current) voiceGainRef.current.gain.value = voiceVol / 100;
   }, [voiceVol]);
+  useEffect(() => {
+    if (!videoRef.current) return;
+    videoRef.current.srcObject = verseOnScreen && hostRef.current
+      ? hostRef.current.verseCanvas.captureStream(24)
+      : streamRef.current;
+    void videoRef.current.play().catch(() => {});
+  }, [verseOnScreen]);
   useEffect(() => {
     if (musicGainRef.current) musicGainRef.current.gain.value = musicVol / 100;
   }, [musicVol]);
@@ -246,6 +257,8 @@ function CreatePage() {
     hostRef.current = null;
     setViewers(0);
     setActiveCamera(1);
+    setVerseOnScreen(false);
+    setShowCameraGrid(false);
     setCameraStatus({ 2: "waiting", 3: "waiting" });
     setLiveId(null);
     stopCamera();
@@ -257,6 +270,17 @@ function CreatePage() {
   async function selectCamera(slot: 1 | CameraSlot) {
     await hostRef.current?.useCamera(slot);
     setActiveCamera(slot);
+    if (verseOnScreen) { await hostRef.current?.showVerse(null); setVerseOnScreen(false); }
+  }
+
+  async function showVerse(slide: VerseSlide) {
+    await hostRef.current?.showVerse(slide);
+    setVerseOnScreen(true);
+  }
+
+  async function clearVerse() {
+    await hostRef.current?.showVerse(null);
+    setVerseOnScreen(false);
   }
 
   async function submit(e: React.FormEvent) {
@@ -342,7 +366,11 @@ function CreatePage() {
                       Camera {activeCamera} on air
                     </span>
                   </div>
-                  <div className="grid gap-3 sm:grid-cols-3">
+                   <div className="flex flex-wrap gap-2">
+                     <Button type="button" variant={activeCamera === 1 && !verseOnScreen ? "default" : "outline"} onClick={() => selectCamera(1)}><Camera /> Camera 1{activeCamera === 1 && !verseOnScreen ? " · On air" : ""}</Button>
+                     <Button type="button" variant="outline" aria-expanded={showCameraGrid} onClick={() => setShowCameraGrid((open) => !open)}>{showCameraGrid ? "Hide cameras" : "View all cameras"}</Button>
+                   </div>
+                   {showCameraGrid ? <div className="grid gap-3 sm:grid-cols-3">
                     <CameraTile
                       slot={1}
                       active={activeCamera === 1}
@@ -369,7 +397,7 @@ function CreatePage() {
                       preview={<video ref={camera3Ref} muted playsInline className="h-full w-full object-cover" />}
                       onSelect={() => selectCamera(3)}
                     />
-                  </div>
+                   </div> : null}
 
                   <div className="grid gap-3 sm:grid-cols-2">
                     <PairingQR streamId={liveId} slot={2} token={cameraTokensRef.current[2]} status={cameraStatus[2]} />
@@ -377,6 +405,8 @@ function CreatePage() {
                   </div>
                 </div>
               ) : null}
+
+               {liveId ? <VersePanel active={verseOnScreen} onShow={showVerse} onClear={clearVerse} /> : null}
 
               <input
                 value={liveTitle}

@@ -1,5 +1,6 @@
 // Small-audience WebRTC broadcasting and QR-paired remote cameras.
 import { supabase } from "@/integrations/supabase/client";
+import { createVerseStage, type VerseSlide } from "@/lib/verse-stage";
 
 const ICE: RTCConfiguration = {
   iceServers: [{ urls: ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"] }],
@@ -35,6 +36,8 @@ function cameraChannel(streamId: string) {
 export type HostController = {
   stop: () => void;
   useCamera: (slot: 1 | CameraSlot) => Promise<void>;
+  showVerse: (slide: VerseSlide | null) => Promise<void>;
+  verseCanvas: HTMLCanvasElement;
 };
 
 export function startHost(
@@ -50,6 +53,8 @@ export function startHost(
   const mainVideo = media.getVideoTracks()[0] ?? null;
   let activeVideo = mainVideo;
   let activeSlot: 1 | CameraSlot = 1;
+  let verseVisible = false;
+  const verseStage = createVerseStage();
   const viewersChannel = viewerChannel(streamId);
   const camerasChannel = cameraChannel(streamId);
   const sendViewer = (payload: ViewerSignal) =>
@@ -121,14 +126,25 @@ export function startHost(
   async function useCamera(slot: 1 | CameraSlot) {
     const nextTrack = slot === 1 ? mainVideo : remoteCameras.get(slot)?.getVideoTracks()[0];
     if (!nextTrack) return;
-    activeVideo = nextTrack;
+    activeVideo = verseVisible ? (verseStage.track ?? nextTrack) : nextTrack;
     activeSlot = slot;
     await Promise.all(
       [...viewers.values()].map(async (peer) => {
         const sender = peer.getSenders().find((item) => item.track?.kind === "video");
-        if (sender) await sender.replaceTrack(nextTrack);
+        if (sender) await sender.replaceTrack(activeVideo);
       }),
     );
+  }
+
+  async function showVerse(slide: VerseSlide | null) {
+    if (slide) await verseStage.setSlide(slide);
+    verseVisible = !!slide;
+    activeVideo = verseVisible ? (verseStage.track ?? mainVideo) : ((activeSlot === 1 ? mainVideo : remoteCameras.get(activeSlot)?.getVideoTracks()[0]) ?? mainVideo);
+    await Promise.all([...viewers.values()].map(async (peer) => {
+      const sender = peer.getSenders().find((item) => item.track?.kind === "video");
+      if (sender) await sender.replaceTrack(activeVideo);
+    }));
+    if (!slide) await verseStage.setSlide(null);
   }
 
   viewersChannel
@@ -163,6 +179,7 @@ export function startHost(
     .subscribe();
 
   function stop() {
+    verseStage.stop();
     void sendViewer({ type: "end" });
     void sendCamera({ type: "broadcast-end" });
     viewers.forEach((peer) => peer.close());
@@ -176,7 +193,7 @@ export function startHost(
     }, 300);
   }
 
-  return { stop, useCamera };
+  return { stop, useCamera, showVerse, verseCanvas: verseStage.canvas };
 }
 
 export function joinAsViewer(streamId: string, onStream: (stream: MediaStream) => void, onEnd: () => void) {
