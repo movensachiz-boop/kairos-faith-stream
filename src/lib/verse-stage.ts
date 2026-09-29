@@ -41,14 +41,14 @@ export function createVerseStage() {
     context.fillStyle = "#fff";
     context.textAlign = "center";
     const text = slide.text.trim();
-    let size = 68;
+    let size = 62;
     let lines: string[] = [];
     do {
-      context.font = `300 ${size}px Mont Verse, sans-serif`;
-      lines = wrap(text, width - 170);
+      context.font = `700 ${size}px Mont Verse Heavy, sans-serif`;
+      lines = wrap(text, width - 190);
       if (lines.length * size * 1.26 <= height - 210 && lines.every((line) => context.measureText(line).width <= width - 160)) break;
       size -= 2;
-    } while (size > 28);
+    } while (size > 26);
     const step = size * 1.26;
     const top = (height - lines.length * step) / 2 + size * 0.76 - 20;
     lines.forEach((line, index) => context.fillText(line, width / 2, top + index * step, width - 150));
@@ -67,7 +67,7 @@ export function createVerseStage() {
       slide = next;
       image = null;
       if (!next) return;
-      await Promise.all([document.fonts.load('300 68px "Mont Verse"'), document.fonts.load('700 30px "Mont Verse Heavy"')]);
+      await Promise.all([document.fonts.load('700 62px "Mont Verse Heavy"'), document.fonts.load('700 30px "Mont Verse Heavy"')]);
       if (current !== generation) return;
       const loaded = new Image();
       loaded.src = next.imageUrl;
