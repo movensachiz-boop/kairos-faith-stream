@@ -13,6 +13,7 @@
 - Small-audience WebRTC broadcast and playback
 - Live comments and background music with voice/music volume controls
 - QR pairing for two extra phone cameras; Camera 1 remains the audio source
+- Full-screen scripture slides with three supplied photographic themes and Mont font; Camera 1 quick switch
 
 ## Not built yet
 - Paynow payment processing (gifts are stored as pending records only)

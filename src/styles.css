@@ -2,6 +2,19 @@
 @source "../src";
 @import "tw-animate-css";
 
+@font-face {
+  font-family: "Mont Verse";
+  src: url("/__l5e/assets-v1/a28881e7-b16c-4e5b-81d9-7faf77e1d9ee/mont-extra-light.otf") format("opentype");
+  font-weight: 300;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Mont Verse Heavy";
+  src: url("/__l5e/assets-v1/f88cc507-c031-42e4-9a99-5a6384658267/mont-heavy.otf") format("opentype");
+  font-weight: 700;
+  font-display: swap;
+}
+
 @custom-variant dark (&:is(.dark *));
 
 /*
@@ -22,6 +35,7 @@
   --font-display: var(--font-display-family);
   --font-body: var(--font-body-family);
   --font-sans: var(--font-body-family);
+  --font-verse: "Mont Verse", sans-serif;
 
   --color-background: var(--background);
   --color-foreground: var(--foreground);
