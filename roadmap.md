@@ -22,3 +22,7 @@
 - AI Bible verse detection and related-Scripture suggestions
 - Full Bible import (only a starter verse set is loaded)
 - Notification generation, analytics dashboards, admin console
+
+## In progress
+- Record live and download after it ends
+- Easier scripture search (reference like "John 3:16" + words), one-tap show, five new backgrounds
