@@ -375,8 +375,16 @@ function CreatePage() {
 
           {tab === "live" ? (
             <div className="space-y-3">
-              <div className="relative overflow-hidden rounded-md border border-border">
-                <video ref={videoRef} muted playsInline className="aspect-video w-full bg-ink object-cover" />
+              <div
+                ref={shellRef}
+                className={`relative overflow-hidden ${expanded ? "flex h-full w-full items-center justify-center bg-ink" : "rounded-md border border-border"}`}
+              >
+                <video
+                  ref={videoRef}
+                  muted
+                  playsInline
+                  className={expanded ? "h-full w-full bg-ink object-contain" : "aspect-video w-full bg-ink object-cover"}
+                />
                 {liveId ? (
                   <span className="absolute left-3 top-3 flex items-center gap-2 rounded-md bg-live px-3 py-1 text-xs font-bold text-destructive-foreground">
                     <span className="live-dot" /> LIVE · {viewers} watching
@@ -387,6 +395,15 @@ function CreatePage() {
                     Camera is off
                   </div>
                 ) : null}
+                <button
+                  type="button"
+                  onClick={toggleExpand}
+                  aria-label={expanded ? "Exit full screen" : "Full screen"}
+                  className="glass-strong absolute bottom-3 right-3 flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold"
+                >
+                  {expanded ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+                  {expanded ? "Exit full screen" : "Full screen"}
+                </button>
               </div>
 
               {liveId ? (
