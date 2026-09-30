@@ -24,8 +24,32 @@ export const Route = createFileRoute("/live/$id")({
 function WatchPage() {
   const { id } = Route.useParams();
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const shellRef = useRef<HTMLDivElement | null>(null);
   const [status, setStatus] = useState<"connecting" | "playing" | "ended">("connecting");
   const [muted, setMuted] = useState(true);
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    const onChange = () => setExpanded(Boolean(document.fullscreenElement));
+    document.addEventListener("fullscreenchange", onChange);
+    return () => document.removeEventListener("fullscreenchange", onChange);
+  }, []);
+
+  async function toggleExpand() {
+    const shell = shellRef.current;
+    if (!shell) return;
+    if (document.fullscreenElement) {
+      await document.exitFullscreen().catch(() => {});
+      return;
+    }
+    // iPhone Safari only allows fullscreen on the video element itself
+    const video = videoRef.current as (HTMLVideoElement & { webkitEnterFullscreen?: () => void }) | null;
+    if (!shell.requestFullscreen) {
+      video?.webkitEnterFullscreen?.();
+      return;
+    }
+    await shell.requestFullscreen().catch(() => {});
+  }
 
   const stream = useQuery({
     queryKey: ["live-stream", id],
