@@ -418,6 +418,15 @@ function CreatePage() {
 
                {liveId ? <VersePanel active={verseOnScreen} onShow={showVerse} onClear={clearVerse} /> : null}
 
+              {recording && !liveId ? (
+                <div className="glass-give space-y-2 rounded-md p-4">
+                  <h3 className="font-display text-sm font-semibold">Your live recording is ready</h3>
+                  <video src={recording.url} controls playsInline className="aspect-video w-full rounded-md bg-ink" />
+                  <a href={recording.url} download={recording.name} className="brand-mark block rounded-md py-3 text-center text-sm font-semibold text-primary-foreground">Download video</a>
+                  <p className="text-xs text-muted-foreground">Saved on this device only — download it before leaving this page.</p>
+                </div>
+              ) : null}
+
               <input
                 value={liveTitle}
                 onChange={(e) => setLiveTitle(e.target.value)}

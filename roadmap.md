@@ -22,3 +22,5 @@
 - AI Bible verse detection and related-Scripture suggestions
 - Full Bible import (only a starter verse set is loaded)
 - Notification generation, analytics dashboards, admin console
+- Live recording downloadable on the host device after the live ends (not uploaded to the cloud)
+- Scripture lookup by reference (any verse) + word search in starter set; one-tap verse on screen; eight backgrounds
