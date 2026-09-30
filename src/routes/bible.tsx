@@ -57,7 +57,7 @@ function BiblePage() {
             <input
               value={term}
               onChange={(e) => setTerm(e.target.value)}
-              placeholder="Search a word or phrase…"
+              placeholder="Search a reference like John 3:16, or a word…"
               className="glass mb-4 w-full rounded-xl px-4 py-3 text-sm outline-none placeholder:text-muted-foreground"
             />
             {verses.isLoading ? (

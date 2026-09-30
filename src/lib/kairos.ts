@@ -86,9 +86,20 @@ export const eventsQuery = () => ({
 
 export const bibleSearchQuery = (term: string) => ({
   queryKey: ["bible", term],
-  queryFn: async () => {
+  queryFn: async (): Promise<{ id: string; book: string; chapter: number; verse: number; text: string }[]> => {
+    const t = term.trim();
+    if (/^\s*([1-3]\s*)?[a-z]+\.?\s+\d+(\s*:\s*\d+(\s*-\s*\d+)?)?\s*$/i.test(t)) {
+      const res = await fetch(`https://bible-api.com/${encodeURIComponent(t)}?translation=web`);
+      if (res.ok) {
+        const json = (await res.json()) as { verses?: { book_name: string; chapter: number; verse: number; text: string }[] };
+        return (json.verses ?? []).map((v) => ({
+          id: `${v.book_name}-${v.chapter}-${v.verse}`, book: v.book_name, chapter: v.chapter, verse: v.verse,
+          text: v.text.replace(/\s+/g, " ").trim(),
+        }));
+      }
+    }
     let q = supabase.from("bible_verses").select("*").limit(40);
-    if (term.trim()) q = q.ilike("text", `%${term.trim()}%`);
+    if (t) { const s = t.replace(/[%,()]/g, " "); q = q.or(`text.ilike.%${s}%,book.ilike.%${s}%`); }
     const { data, error } = await q;
     if (error) throw error;
     return data ?? [];
