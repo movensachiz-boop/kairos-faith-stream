@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import QRCode from "qrcode";
-import { Camera, Check, Link2, Radio, Smartphone } from "lucide-react";
+import { Camera, Check, Link2, Maximize2, Minimize2, Radio, Smartphone } from "lucide-react";
 import { AppShell, SectionCard } from "@/components/layout/AppShell";
 import { Button } from "@/components/ui/button";
 import { ministriesQuery } from "@/lib/kairos";
@@ -45,6 +45,8 @@ function CreatePage() {
 
   // Live state
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const shellRef = useRef<HTMLDivElement | null>(null);
+  const [expanded, setExpanded] = useState(false);
   const streamRef = useRef<MediaStream | null>(null);
   const [cameraOn, setCameraOn] = useState(false);
   const [liveId, setLiveId] = useState<string | null>(null);
