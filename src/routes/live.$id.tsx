@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
+import { Maximize2, Minimize2 } from "lucide-react";
 import { AppShell, SectionCard } from "@/components/layout/AppShell";
 import { supabase } from "@/integrations/supabase/client";
 import { joinAsViewer } from "@/lib/broadcast";
