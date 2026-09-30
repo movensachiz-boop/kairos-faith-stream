@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
+import { Maximize2, Minimize2 } from "lucide-react";
 import { AppShell, SectionCard } from "@/components/layout/AppShell";
 import { supabase } from "@/integrations/supabase/client";
 import { joinAsViewer } from "@/lib/broadcast";
@@ -23,8 +24,32 @@ export const Route = createFileRoute("/live/$id")({
 function WatchPage() {
   const { id } = Route.useParams();
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const shellRef = useRef<HTMLDivElement | null>(null);
   const [status, setStatus] = useState<"connecting" | "playing" | "ended">("connecting");
   const [muted, setMuted] = useState(true);
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    const onChange = () => setExpanded(Boolean(document.fullscreenElement));
+    document.addEventListener("fullscreenchange", onChange);
+    return () => document.removeEventListener("fullscreenchange", onChange);
+  }, []);
+
+  async function toggleExpand() {
+    const shell = shellRef.current;
+    if (!shell) return;
+    if (document.fullscreenElement) {
+      await document.exitFullscreen().catch(() => {});
+      return;
+    }
+    // iPhone Safari only allows fullscreen on the video element itself
+    const video = videoRef.current as (HTMLVideoElement & { webkitEnterFullscreen?: () => void }) | null;
+    if (!shell.requestFullscreen) {
+      video?.webkitEnterFullscreen?.();
+      return;
+    }
+    await shell.requestFullscreen().catch(() => {});
+  }
 
   const stream = useQuery({
     queryKey: ["live-stream", id],
@@ -61,8 +86,16 @@ function WatchPage() {
   return (
     <AppShell>
       <div className="mx-auto max-w-3xl space-y-5">
-        <div className="relative overflow-hidden rounded-2xl glass">
-          <video ref={videoRef} playsInline muted={muted} className="aspect-video w-full bg-ink object-cover" />
+        <div
+          ref={shellRef}
+          className={`relative overflow-hidden ${expanded ? "flex h-full w-full items-center justify-center bg-ink" : "rounded-2xl glass"}`}
+        >
+          <video
+            ref={videoRef}
+            playsInline
+            muted={muted}
+            className={expanded ? "h-full w-full bg-ink object-contain" : "aspect-video w-full bg-ink object-cover"}
+          />
           {!ended && status === "playing" ? (
             <span className="absolute left-3 top-3 flex items-center gap-2 rounded-md bg-live px-3 py-1 text-xs font-bold text-destructive-foreground">
               <span className="live-dot" /> LIVE
@@ -73,14 +106,24 @@ function WatchPage() {
               {stream.isLoading ? "Loading…" : ended ? "This live has ended." : "Connecting to the live video…"}
             </div>
           ) : null}
-          {status === "playing" && !ended ? (
+          <div className="absolute bottom-3 right-3 flex gap-2">
+            {status === "playing" && !ended ? (
+              <button
+                onClick={() => setMuted((m) => !m)}
+                className="glass-strong rounded-full px-3 py-1.5 text-xs font-semibold"
+              >
+                {muted ? "🔇 Tap for sound" : "🔊 Sound on"}
+              </button>
+            ) : null}
             <button
-              onClick={() => setMuted((m) => !m)}
-              className="glass-strong absolute bottom-3 right-3 rounded-full px-3 py-1.5 text-xs font-semibold"
+              onClick={toggleExpand}
+              aria-label={expanded ? "Exit full screen" : "Full screen"}
+              className="glass-strong flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold"
             >
-              {muted ? "🔇 Tap for sound" : "🔊 Sound on"}
+              {expanded ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+              {expanded ? "Exit full screen" : "Full screen"}
             </button>
-          ) : null}
+          </div>
         </div>
 
         <SectionCard

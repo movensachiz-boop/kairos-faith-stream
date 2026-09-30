@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import QRCode from "qrcode";
-import { Camera, Check, Link2, Radio, Smartphone } from "lucide-react";
+import { Camera, Check, Link2, Maximize2, Minimize2, Radio, Smartphone } from "lucide-react";
 import { AppShell, SectionCard } from "@/components/layout/AppShell";
 import { Button } from "@/components/ui/button";
 import { ministriesQuery } from "@/lib/kairos";
@@ -45,6 +45,8 @@ function CreatePage() {
 
   // Live state
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const shellRef = useRef<HTMLDivElement | null>(null);
+  const [expanded, setExpanded] = useState(false);
   const streamRef = useRef<MediaStream | null>(null);
   const [cameraOn, setCameraOn] = useState(false);
   const [liveId, setLiveId] = useState<string | null>(null);
@@ -106,6 +108,28 @@ function CreatePage() {
   useEffect(() => {
     if (musicGainRef.current) musicGainRef.current.gain.value = musicVol / 100;
   }, [musicVol]);
+
+  useEffect(() => {
+    const onChange = () => setExpanded(Boolean(document.fullscreenElement));
+    document.addEventListener("fullscreenchange", onChange);
+    return () => document.removeEventListener("fullscreenchange", onChange);
+  }, []);
+
+  async function toggleExpand() {
+    const shell = shellRef.current;
+    if (!shell) return;
+    if (document.fullscreenElement) {
+      await document.exitFullscreen().catch(() => {});
+      return;
+    }
+    // iPhone Safari only allows fullscreen on the video element itself
+    const video = videoRef.current as (HTMLVideoElement & { webkitEnterFullscreen?: () => void }) | null;
+    if (!shell.requestFullscreen) {
+      video?.webkitEnterFullscreen?.();
+      return;
+    }
+    await shell.requestFullscreen().catch(() => {});
+  }
 
   function buildMix(stream: MediaStream) {
     const ctx = new AudioContext();
@@ -351,8 +375,16 @@ function CreatePage() {
 
           {tab === "live" ? (
             <div className="space-y-3">
-              <div className="relative overflow-hidden rounded-md border border-border">
-                <video ref={videoRef} muted playsInline className="aspect-video w-full bg-ink object-cover" />
+              <div
+                ref={shellRef}
+                className={`relative overflow-hidden ${expanded ? "flex h-full w-full items-center justify-center bg-ink" : "rounded-md border border-border"}`}
+              >
+                <video
+                  ref={videoRef}
+                  muted
+                  playsInline
+                  className={expanded ? "h-full w-full bg-ink object-contain" : "aspect-video w-full bg-ink object-cover"}
+                />
                 {liveId ? (
                   <span className="absolute left-3 top-3 flex items-center gap-2 rounded-md bg-live px-3 py-1 text-xs font-bold text-destructive-foreground">
                     <span className="live-dot" /> LIVE · {viewers} watching
@@ -363,6 +395,15 @@ function CreatePage() {
                     Camera is off
                   </div>
                 ) : null}
+                <button
+                  type="button"
+                  onClick={toggleExpand}
+                  aria-label={expanded ? "Exit full screen" : "Full screen"}
+                  className="glass-strong absolute bottom-3 right-3 flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold"
+                >
+                  {expanded ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+                  {expanded ? "Exit full screen" : "Full screen"}
+                </button>
               </div>
 
               {liveId ? (
