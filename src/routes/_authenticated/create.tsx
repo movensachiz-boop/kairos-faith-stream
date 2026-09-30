@@ -109,6 +109,28 @@ function CreatePage() {
     if (musicGainRef.current) musicGainRef.current.gain.value = musicVol / 100;
   }, [musicVol]);
 
+  useEffect(() => {
+    const onChange = () => setExpanded(Boolean(document.fullscreenElement));
+    document.addEventListener("fullscreenchange", onChange);
+    return () => document.removeEventListener("fullscreenchange", onChange);
+  }, []);
+
+  async function toggleExpand() {
+    const shell = shellRef.current;
+    if (!shell) return;
+    if (document.fullscreenElement) {
+      await document.exitFullscreen().catch(() => {});
+      return;
+    }
+    // iPhone Safari only allows fullscreen on the video element itself
+    const video = videoRef.current as (HTMLVideoElement & { webkitEnterFullscreen?: () => void }) | null;
+    if (!shell.requestFullscreen) {
+      video?.webkitEnterFullscreen?.();
+      return;
+    }
+    await shell.requestFullscreen().catch(() => {});
+  }
+
   function buildMix(stream: MediaStream) {
     const ctx = new AudioContext();
     const dest = ctx.createMediaStreamDestination();
