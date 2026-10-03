@@ -17,7 +17,7 @@ export function spokenReference(transcript: string): string | null {
   const chapter = numberOf(match[2] ?? "");
   const verse = numberOf(match[3] ?? "");
   if (!chapter || !verse || chapter > 150 || verse > 176) return null;
-  const book = (match[1] ?? "").replace(/^first\b/, "1").replace(/^second\b/, "2").replace(/^third\b/, "3").trim();
+  const book = (match[1] ?? "").replace(/\bfirst\b/g, "1").replace(/\bsecond\b/g, "2").replace(/\bthird\b/g, "3").trim();
   const known = new Set("genesis exodus leviticus numbers deuteronomy joshua judges ruth samuel kings chronicles ezra nehemiah esther job psalm psalms proverbs ecclesiastes isaiah jeremiah lamentations ezekiel daniel hosea joel amos obadiah jonah micah nahum habakkuk zephaniah haggai zechariah malachi matthew mark luke john acts romans corinthians galatians ephesians philippians colossians thessalonians timothy titus philemon hebrews james peter jude revelation".split(" "));
   const words = book.split(" ");
   const index = words.findIndex((word) => known.has(word));
