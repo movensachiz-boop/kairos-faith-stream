@@ -51,6 +51,7 @@ function CreatePage() {
   const shellRef = useRef<HTMLDivElement | null>(null);
   const [expanded, setExpanded] = useState(false);
   const streamRef = useRef<MediaStream | null>(null);
+  const cameraStartRef = useRef<Promise<void> | null>(null);
   const [cameraOn, setCameraOn] = useState(false);
   const [liveId, setLiveId] = useState<string | null>(null);
   const [liveTitle, setLiveTitle] = useState("");
@@ -91,6 +92,8 @@ function CreatePage() {
     musicElRef.current?.pause();
     musicElRef.current = null;
     musicSourceRef.current = null;
+    voiceGainRef.current = null;
+    musicGainRef.current = null;
     setMusicPlaying(false);
     audioCtxRef.current?.close().catch(() => {});
     audioCtxRef.current = null;
@@ -148,6 +151,10 @@ function CreatePage() {
   }
 
   function buildMix(stream: MediaStream) {
+    if (audioCtxRef.current) {
+      void audioCtxRef.current.close().catch(() => {});
+      musicSourceRef.current = null;
+    }
     const ctx = new AudioContext();
     const dest = ctx.createMediaStreamDestination();
     const voiceGain = ctx.createGain();
@@ -202,7 +209,7 @@ function CreatePage() {
     }
   }
 
-  async function startCamera() {
+  async function acquireCamera() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { width: { ideal: 1280 }, height: { ideal: 720 }, aspectRatio: { ideal: 16 / 9 } },
@@ -218,6 +225,14 @@ function CreatePage() {
     } catch (err: any) {
       toast.error(err?.message ?? "Camera access was denied.");
     }
+  }
+
+  function startCamera() {
+    if (cameraStartRef.current) return cameraStartRef.current;
+    if (streamRef.current) return Promise.resolve();
+    const pending = acquireCamera().finally(() => { cameraStartRef.current = null; });
+    cameraStartRef.current = pending;
+    return pending;
   }
 
   async function pickPoster(file: File | undefined) {
