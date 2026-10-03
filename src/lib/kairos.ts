@@ -59,6 +59,7 @@ export const ministriesQuery = () => ({
 
 export const liveStreamsQuery = () => ({
   queryKey: ["live-streams"],
+  refetchInterval: 15000,
   queryFn: async () => {
     const { data, error } = await supabase
       .from("live_streams")
