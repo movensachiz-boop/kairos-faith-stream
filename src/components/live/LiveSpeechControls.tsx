@@ -27,6 +27,8 @@ export function LiveSpeechControls({ onCaption, onApprove, imageUrl }: {
   const recognitionRef = useRef<Recognition | null>(null);
   const wantedRef = useRef(false);
   const lastRef = useRef("");
+  const toggleButtonRef = useRef<HTMLButtonElement | null>(null);
+  const approveButtonRef = useRef<HTMLButtonElement | null>(null);
   const onCaptionRef = useRef(onCaption);
   onCaptionRef.current = onCaption;
 
@@ -35,6 +37,30 @@ export function LiveSpeechControls({ onCaption, onApprove, imageUrl }: {
     setSupported(Boolean(win.SpeechRecognition ?? win.webkitSpeechRecognition));
     return () => { wantedRef.current = false; recognitionRef.current?.stop(); onCaptionRef.current(""); };
   }, []);
+
+  useEffect(() => {
+    if (!candidate) return;
+    approveButtonRef.current?.focus();
+    const dismiss = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      setCandidate(null);
+      toggleButtonRef.current?.focus();
+    };
+    window.addEventListener("keydown", dismiss);
+    return () => window.removeEventListener("keydown", dismiss);
+  }, [candidate]);
+
+  function dismissCandidate() {
+    setCandidate(null);
+    window.setTimeout(() => toggleButtonRef.current?.focus(), 0);
+  }
+
+  async function approveCandidate() {
+    if (!candidate) return;
+    await onApprove({ ...candidate, imageUrl: imageUrl ?? mist.url });
+    setCandidate(null);
+    window.setTimeout(() => toggleButtonRef.current?.focus(), 0);
+  }
 
   function toggle() {
     if (wantedRef.current) {
@@ -93,20 +119,25 @@ export function LiveSpeechControls({ onCaption, onApprove, imageUrl }: {
   return <section className="space-y-3 border-y border-border py-4" aria-label="Live captions and spoken Scripture">
     <div className="flex flex-wrap items-center justify-between gap-2">
       <h3 className="text-sm font-semibold">Live captions & spoken Scripture</h3>
-      <Button type="button" variant={listening ? "default" : "outline"} onClick={toggle} disabled={!supported}>
+      <Button ref={toggleButtonRef} type="button" variant={listening ? "default" : "outline"} onClick={toggle} disabled={!supported}>
         {listening ? <MicOff /> : <Mic />} {listening ? "Stop captions" : "Start captions"}
       </Button>
     </div>
     {!supported ? <p className="text-xs text-muted-foreground">Speech recognition is unavailable in this browser. Try Chrome or Edge, or search verses manually below.</p> :
       <p className="text-xs text-muted-foreground">Captions follow your voice. Say a reference such as “John chapter three verse sixteen” to review the verse before showing it.</p>}
     {status && <p role="status" className="text-xs text-muted-foreground">{status}</p>}
-    {candidate && <div className="space-y-2 rounded-md border border-primary bg-secondary p-3" role="status">
-      <p className="text-sm font-semibold">{candidate.reference}</p>
-      <p className="font-verse-heavy text-sm">{candidate.text}</p>
-      <div className="flex gap-2">
-        <Button type="button" size="sm" onClick={() => { void onApprove({ ...candidate, imageUrl: imageUrl ?? mist.url }).then(() => setCandidate(null)); }}><Check /> Show verse</Button>
-        <Button type="button" size="sm" variant="outline" onClick={() => setCandidate(null)}><X /> Dismiss</Button>
+    {candidate ? <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 p-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) dismissCandidate(); }}>
+      <div className="w-full max-w-lg space-y-4 rounded-md border border-primary bg-background p-5" role="alertdialog" aria-modal="true" aria-labelledby="spoken-verse-title" aria-describedby="spoken-verse-text">
+        <div>
+          <p className="text-xs font-semibold text-primary">Scripture found</p>
+          <h3 id="spoken-verse-title" className="mt-1 font-display text-xl font-semibold">{candidate.reference}</h3>
+        </div>
+        <p id="spoken-verse-text" className="font-verse-heavy text-lg leading-relaxed">{candidate.text}</p>
+        <div className="grid grid-cols-2 gap-2">
+          <Button ref={approveButtonRef} type="button" onClick={() => void approveCandidate()}><Check /> Show verse</Button>
+          <Button type="button" variant="outline" onClick={dismissCandidate}><X /> Dismiss</Button>
+        </div>
       </div>
-    </div>}
+    </div> : null}
   </section>;
 }
