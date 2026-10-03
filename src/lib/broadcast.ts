@@ -33,6 +33,22 @@ function cameraChannel(streamId: string) {
   return supabase.channel(`live-cameras:${streamId}`, { config: { broadcast: { self: false } } });
 }
 
+// Carry gathered network candidates in the offer/answer too, so pairing does not
+// depend on realtime trickle messages arriving in exactly the right order.
+function gatheredDescription(pc: RTCPeerConnection): Promise<RTCSessionDescriptionInit> {
+  return new Promise((resolve) => {
+    const finish = () => {
+      pc.removeEventListener("icegatheringstatechange", check);
+      clearTimeout(timeout);
+      resolve(pc.localDescription ?? {});
+    };
+    const check = () => { if (pc.iceGatheringState === "complete") finish(); };
+    const timeout = setTimeout(finish, 7000);
+    pc.addEventListener("icegatheringstatechange", check);
+    check();
+  });
+}
+
 export type HostController = {
   stop: () => void;
   useCamera: (slot: 1 | CameraSlot) => Promise<void>;
@@ -146,7 +162,8 @@ export function startHost(
     };
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
-    await sendCamera({ type: "camera-offer", to: id, slot, sdp: offer });
+    const sdp = await gatheredDescription(pc);
+    if (cameraPeers.get(slot)?.pc === pc) await sendCamera({ type: "camera-offer", to: id, slot, sdp });
   }
 
   function disconnectCamera(slot: CameraSlot) {
@@ -397,7 +414,9 @@ export function joinAsRemoteCamera(
         for (const candidate of pendingIce.splice(0)) await peer.addIceCandidate(candidate).catch(() => {});
         const answer = await peer.createAnswer();
         await peer.setLocalDescription(answer);
-        await send({ type: "camera-answer", from: me, slot, sdp: answer });
+        const sdp = await gatheredDescription(peer);
+        if (closed || peer !== pc) return;
+        await send({ type: "camera-answer", from: me, slot, sdp });
         if (connectionTimer) clearTimeout(connectionTimer);
         connectionTimer = setTimeout(() => {
           if (closed || peer !== pc || connected) return;
