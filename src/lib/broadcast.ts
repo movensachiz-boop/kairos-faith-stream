@@ -69,7 +69,7 @@ export function startHost(
   onCamera: (slot: CameraSlot, stream: MediaStream | null, status: CameraStatus) => void,
 ): HostController {
   const viewers = new Map<string, RTCPeerConnection>();
-  const cameraPeers = new Map<CameraSlot, { id: string; pc: RTCPeerConnection }>();
+  const cameraPeers = new Map<CameraSlot, { id: string; pc: RTCPeerConnection; started: number }>();
   const cameraIce = new Map<CameraSlot, RTCIceCandidateInit[]>();
   const remoteCameras = new Map<CameraSlot, MediaStream>();
   const mainVideo = media.getVideoTracks()[0] ?? null;
@@ -127,7 +127,7 @@ export function startHost(
   async function addRemoteCamera(id: string, slot: CameraSlot, token: string) {
     if (tokens[slot] !== token) return;
     const previous = cameraPeers.get(slot);
-    if (previous?.id === id && !["failed", "closed", "disconnected"].includes(previous.pc.connectionState)) return;
+    if (previous?.id === id && Date.now() - previous.started < 14000 && !["failed", "closed", "disconnected"].includes(previous.pc.connectionState)) return;
     if (previous) {
       previous.pc.onconnectionstatechange = null;
       previous.pc.close();
@@ -136,7 +136,7 @@ export function startHost(
     cameraIce.delete(slot);
     onCamera(slot, null, "connecting");
     const pc = new RTCPeerConnection(ICE);
-    cameraPeers.set(slot, { id, pc });
+    cameraPeers.set(slot, { id, pc, started: Date.now() });
     pc.addTransceiver("video", { direction: "recvonly" });
     pc.ontrack = (event) => {
       if (cameraPeers.get(slot)?.pc !== pc) return;
