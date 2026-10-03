@@ -79,8 +79,9 @@ export function LiveSpeechControls({ onCaption, onApprove, imageUrl }: {
     recognitionRef.current = recognition;
     recognition.continuous = true;
     recognition.interimResults = true;
-    // No fixed language: use the device's language so every speaker is picked up.
-    recognition.lang = navigator.language || "en-US";
+    // English (any accent the device uses) so Bible book names are written in a form we can match.
+    const deviceLang = navigator.language || "";
+    recognition.lang = deviceLang.toLowerCase().startsWith("en") ? deviceLang : "en-US";
     recognition.onresult = (event) => {
       let interim = "";
       for (let i = event.resultIndex; i < event.results.length; i++) {
