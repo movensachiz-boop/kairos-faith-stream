@@ -413,6 +413,7 @@ function CreatePage() {
       (slot, remoteStream, status) => {
         if (remoteStream) remoteStreamsRef.current[slot] = remoteStream;
         else delete remoteStreamsRef.current[slot];
+        if (status === "disconnected") setActiveCamera((current) => current === slot ? 1 : current);
         setCameraStatus((current) => ({ ...current, [slot]: status }));
         const element = slot === 2 ? camera2Ref.current : camera3Ref.current;
         if (element) {
