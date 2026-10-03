@@ -211,7 +211,7 @@ export function startHost(
       const y = logoPosition.startsWith("bottom") ? 720 - height - gap : gap;
       recCtx.drawImage(logoImage, x, y, width, height);
     }
-    if (caption.trim()) {
+    if (caption.trim() && !verseVisible) {
       recCtx.font = '700 38px "Mont Verse Heavy", sans-serif';
       const text = caption.trim().slice(0, 160);
       const maxWidth = 1060;
