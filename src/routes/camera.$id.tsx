@@ -57,7 +57,7 @@ function RemoteCameraPage() {
       streamRef.current = media;
       if (videoRef.current) {
         videoRef.current.srcObject = media;
-        await videoRef.current.play();
+        void videoRef.current.play().catch(() => {});
       }
       leaveRef.current = joinAsRemoteCamera(id, slot, token, media, setStatus);
     } catch (cause) {

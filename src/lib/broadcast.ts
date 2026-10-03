@@ -40,7 +40,7 @@ function gatheredDescription(pc: RTCPeerConnection): Promise<RTCSessionDescripti
     const finish = () => {
       pc.removeEventListener("icegatheringstatechange", check);
       clearTimeout(timeout);
-      resolve(pc.localDescription ?? {});
+      resolve(pc.localDescription ?? { type: "offer", sdp: "" });
     };
     const check = () => { if (pc.iceGatheringState === "complete") finish(); };
     const timeout = setTimeout(finish, 7000);
@@ -127,7 +127,7 @@ export function startHost(
   async function addRemoteCamera(id: string, slot: CameraSlot, token: string) {
     if (tokens[slot] !== token) return;
     const previous = cameraPeers.get(slot);
-    if (previous?.id === id && Date.now() - previous.started < 14000 && !["failed", "closed", "disconnected"].includes(previous.pc.connectionState)) return;
+    if (previous?.id === id && Date.now() - previous.started < 25000 && !["failed", "closed", "disconnected"].includes(previous.pc.connectionState)) return;
     if (previous) {
       previous.pc.onconnectionstatechange = null;
       previous.pc.close();
@@ -423,7 +423,7 @@ export function joinAsRemoteCamera(
           peer.close();
           onStatus("connecting");
           requestJoin();
-        }, 12000);
+        }, 20000);
       } else if (message.type === "camera-ice" && message.to === me && message.slot === slot) {
         if (pc?.remoteDescription) await pc.addIceCandidate(message.candidate).catch(() => {});
         else pendingIce.push(message.candidate);
