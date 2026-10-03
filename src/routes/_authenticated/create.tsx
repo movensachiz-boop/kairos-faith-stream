@@ -75,6 +75,7 @@ function CreatePage() {
   const cameraTokensRef = useRef<Record<CameraSlot, string>>({ 2: crypto.randomUUID(), 3: crypto.randomUUID() });
   const camera2Ref = useRef<HTMLVideoElement | null>(null);
   const camera3Ref = useRef<HTMLVideoElement | null>(null);
+  const remoteStreamsRef = useRef<Partial<Record<CameraSlot, MediaStream>>>({});
   const [cameraStatus, setCameraStatus] = useState<Record<CameraSlot, CameraStatus>>({
     2: "waiting",
     3: "waiting",
@@ -127,9 +128,19 @@ function CreatePage() {
     if (!videoRef.current) return;
     videoRef.current.srcObject = verseOnScreen && hostRef.current
       ? hostRef.current.verseCanvas.captureStream(24)
-      : streamRef.current;
+      : activeCamera === 1 ? streamRef.current : (remoteStreamsRef.current[activeCamera] ?? streamRef.current);
     void videoRef.current.play().catch(() => {});
-  }, [verseOnScreen]);
+  }, [verseOnScreen, activeCamera, cameraStatus]);
+  useEffect(() => {
+    if (!showCameraGrid) return;
+    for (const slot of [2, 3] as const) {
+      const element = slot === 2 ? camera2Ref.current : camera3Ref.current;
+      if (element) {
+        element.srcObject = remoteStreamsRef.current[slot] ?? null;
+        if (element.srcObject) void element.play().catch(() => {});
+      }
+    }
+  }, [showCameraGrid, cameraStatus]);
   useEffect(() => {
     if (musicGainRef.current) musicGainRef.current.gain.value = musicVol / 100;
   }, [musicVol]);
@@ -400,6 +411,9 @@ function CreatePage() {
       cameraTokensRef.current,
       setViewers,
       (slot, remoteStream, status) => {
+        if (remoteStream) remoteStreamsRef.current[slot] = remoteStream;
+        else delete remoteStreamsRef.current[slot];
+        if (status === "disconnected") setActiveCamera((current) => current === slot ? 1 : current);
         setCameraStatus((current) => ({ ...current, [slot]: status }));
         const element = slot === 2 ? camera2Ref.current : camera3Ref.current;
         if (element) {
@@ -435,6 +449,7 @@ function CreatePage() {
     setVerseOnScreen(false);
     setShowCameraGrid(false);
     setCameraStatus({ 2: "waiting", 3: "waiting" });
+    remoteStreamsRef.current = {};
     setLiveId(null);
     setStartedAt(null);
     stopCamera();
@@ -945,7 +960,7 @@ function PairingQR({
           <Check className="size-5" /> Camera ready
         </div>
       ) : qr ? (
-        <div className="mt-3 flex justify-center bg-background p-2"><img src={qr} alt={`QR code for Camera ${slot}`} className="size-32" /></div>
+        <div className="mt-3 flex justify-center bg-background p-2"><img src={qr} alt={`QR code for Camera ${slot}`} className="size-56 max-w-full" /></div>
       ) : null}
       <Button type="button" variant="outline" size="sm" className="mt-3 w-full" onClick={copyLink}>
         <Link2 /> Copy camera link

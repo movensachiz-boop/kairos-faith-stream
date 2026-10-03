@@ -33,6 +33,22 @@ function cameraChannel(streamId: string) {
   return supabase.channel(`live-cameras:${streamId}`, { config: { broadcast: { self: false } } });
 }
 
+// Carry gathered network candidates in the offer/answer too, so pairing does not
+// depend on realtime trickle messages arriving in exactly the right order.
+function gatheredDescription(pc: RTCPeerConnection): Promise<RTCSessionDescriptionInit> {
+  return new Promise((resolve) => {
+    const finish = () => {
+      pc.removeEventListener("icegatheringstatechange", check);
+      clearTimeout(timeout);
+      resolve(pc.localDescription ?? { type: "offer", sdp: "" });
+    };
+    const check = () => { if (pc.iceGatheringState === "complete") finish(); };
+    const timeout = setTimeout(finish, 7000);
+    pc.addEventListener("icegatheringstatechange", check);
+    check();
+  });
+}
+
 export type HostController = {
   stop: () => void;
   useCamera: (slot: 1 | CameraSlot) => Promise<void>;
@@ -53,7 +69,8 @@ export function startHost(
   onCamera: (slot: CameraSlot, stream: MediaStream | null, status: CameraStatus) => void,
 ): HostController {
   const viewers = new Map<string, RTCPeerConnection>();
-  const cameraPeers = new Map<CameraSlot, { id: string; pc: RTCPeerConnection }>();
+  const cameraPeers = new Map<CameraSlot, { id: string; pc: RTCPeerConnection; started: number }>();
+  const cameraIce = new Map<CameraSlot, RTCIceCandidateInit[]>();
   const remoteCameras = new Map<CameraSlot, MediaStream>();
   const mainVideo = media.getVideoTracks()[0] ?? null;
   let activeVideo = mainVideo;
@@ -109,17 +126,28 @@ export function startHost(
 
   async function addRemoteCamera(id: string, slot: CameraSlot, token: string) {
     if (tokens[slot] !== token) return;
-    cameraPeers.get(slot)?.pc.close();
+    const previous = cameraPeers.get(slot);
+    if (previous?.id === id && Date.now() - previous.started < 25000 && !["failed", "closed", "disconnected"].includes(previous.pc.connectionState)) return;
+    if (previous) {
+      previous.pc.onconnectionstatechange = null;
+      previous.pc.close();
+    }
     remoteCameras.delete(slot);
+    cameraIce.delete(slot);
     onCamera(slot, null, "connecting");
     const pc = new RTCPeerConnection(ICE);
-    cameraPeers.set(slot, { id, pc });
+    cameraPeers.set(slot, { id, pc, started: Date.now() });
     pc.addTransceiver("video", { direction: "recvonly" });
     pc.ontrack = (event) => {
+      if (cameraPeers.get(slot)?.pc !== pc) return;
       const stream = event.streams[0] ?? new MediaStream([event.track]);
       remoteCameras.set(slot, stream);
-      onCamera(slot, stream, "connected");
-      event.track.onended = () => disconnectCamera(slot);
+      // ontrack can fire before ICE connects; wait until frames can actually arrive.
+      onCamera(slot, stream, pc.connectionState === "connected" ? "connected" : "connecting");
+      event.track.onunmute = () => {
+        if (cameraPeers.get(slot)?.pc === pc && pc.connectionState === "connected") onCamera(slot, stream, "connected");
+      };
+      event.track.onended = () => { if (cameraPeers.get(slot)?.pc === pc) disconnectCamera(slot); };
     };
     pc.onicecandidate = (event) => {
       if (event.candidate) {
@@ -127,18 +155,24 @@ export function startHost(
       }
     };
     pc.onconnectionstatechange = () => {
-      if (["failed", "closed", "disconnected"].includes(pc.connectionState)) disconnectCamera(slot);
+      if (cameraPeers.get(slot)?.pc === pc && pc.connectionState === "connected") {
+        onCamera(slot, remoteCameras.get(slot) ?? null, "connected");
+      }
+      if (cameraPeers.get(slot)?.pc === pc && ["failed", "closed", "disconnected"].includes(pc.connectionState)) disconnectCamera(slot);
     };
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
-    await sendCamera({ type: "camera-offer", to: id, slot, sdp: offer });
+    const sdp = await gatheredDescription(pc);
+    if (cameraPeers.get(slot)?.pc === pc) await sendCamera({ type: "camera-offer", to: id, slot, sdp });
   }
 
   function disconnectCamera(slot: CameraSlot) {
     const entry = cameraPeers.get(slot);
+    if (entry) entry.pc.onconnectionstatechange = null;
     entry?.pc.close();
     cameraPeers.delete(slot);
     remoteCameras.delete(slot);
+    cameraIce.delete(slot);
     onCamera(slot, null, "disconnected");
     if (activeSlot === slot) void useCamera(1);
   }
@@ -177,10 +211,17 @@ export function startHost(
         await addRemoteCamera(message.from, message.slot, message.token);
       } else if (message.type === "camera-answer") {
         const camera = cameraPeers.get(message.slot);
-        if (camera?.id === message.from) await camera.pc.setRemoteDescription(message.sdp);
+        if (camera?.id === message.from) {
+          await camera.pc.setRemoteDescription(message.sdp);
+          for (const candidate of cameraIce.get(message.slot) ?? []) await camera.pc.addIceCandidate(candidate).catch(() => {});
+          cameraIce.delete(message.slot);
+        }
       } else if (message.type === "camera-ice" && message.from) {
         const camera = cameraPeers.get(message.slot);
-        if (camera?.id === message.from) await camera.pc.addIceCandidate(message.candidate).catch(() => {});
+        if (camera?.id === message.from) {
+          if (camera.pc.remoteDescription) await camera.pc.addIceCandidate(message.candidate).catch(() => {});
+          else cameraIce.set(message.slot, [...(cameraIce.get(message.slot) ?? []), message.candidate]);
+        }
       } else if (message.type === "camera-leave") {
         const camera = cameraPeers.get(message.slot);
         if (camera?.id === message.from) disconnectCamera(message.slot);
@@ -326,48 +367,80 @@ export function joinAsRemoteCamera(
 ) {
   const me = `camera-${slot}-${crypto.randomUUID()}`;
   let pc: RTCPeerConnection | null = null;
+  let closed = false;
+  let connected = false;
+  let joinTimer: ReturnType<typeof setInterval> | null = null;
+  let connectionTimer: ReturnType<typeof setTimeout> | null = null;
+  const pendingIce: RTCIceCandidateInit[] = [];
   const channel = cameraChannel(streamId);
   const send = (payload: CameraSignal) => channel.send({ type: "broadcast", event: "camera-signal", payload });
+  const requestJoin = () => {
+    if (!closed && !connected) void send({ type: "camera-join", from: me, slot, token });
+  };
 
   channel
     .on("broadcast", { event: "camera-signal" }, async ({ payload }) => {
       const message = payload as CameraSignal;
       if (message.type === "broadcast-end") {
+        if (joinTimer) clearInterval(joinTimer);
+        if (connectionTimer) clearTimeout(connectionTimer);
         onStatus("ended");
       } else if (message.type === "camera-offer" && message.to === me && message.slot === slot) {
         pc?.close();
         pc = new RTCPeerConnection(ICE);
+        const peer = pc;
         const track = media.getVideoTracks()[0];
         if (!track) return;
-        pc.addTrack(track, media);
-        pc.onicecandidate = (event) => {
+        peer.addTrack(track, media);
+        peer.onicecandidate = (event) => {
           if (event.candidate) {
             void send({ type: "camera-ice", from: me, slot, candidate: event.candidate.toJSON() });
           }
         };
-        pc.onconnectionstatechange = () => {
-          if (pc?.connectionState === "connected") onStatus("connected");
-          else if (pc && ["failed", "closed", "disconnected"].includes(pc.connectionState)) {
+        peer.onconnectionstatechange = () => {
+          if (closed || peer !== pc) return;
+          if (peer.connectionState === "connected") {
+            connected = true;
+            if (joinTimer) clearInterval(joinTimer);
+            if (connectionTimer) clearTimeout(connectionTimer);
+            onStatus("connected");
+          } else if (["failed", "closed", "disconnected"].includes(peer.connectionState)) {
+            connected = false;
             onStatus("disconnected");
+            if (peer.connectionState === "failed") requestJoin();
           }
         };
-        await pc.setRemoteDescription(message.sdp);
-        const answer = await pc.createAnswer();
-        await pc.setLocalDescription(answer);
-        await send({ type: "camera-answer", from: me, slot, sdp: answer });
-        onStatus("connected");
+        await peer.setRemoteDescription(message.sdp);
+        for (const candidate of pendingIce.splice(0)) await peer.addIceCandidate(candidate).catch(() => {});
+        const answer = await peer.createAnswer();
+        await peer.setLocalDescription(answer);
+        const sdp = await gatheredDescription(peer);
+        if (closed || peer !== pc) return;
+        await send({ type: "camera-answer", from: me, slot, sdp });
+        if (connectionTimer) clearTimeout(connectionTimer);
+        connectionTimer = setTimeout(() => {
+          if (closed || peer !== pc || connected) return;
+          peer.close();
+          onStatus("connecting");
+          requestJoin();
+        }, 20000);
       } else if (message.type === "camera-ice" && message.to === me && message.slot === slot) {
-        await pc?.addIceCandidate(message.candidate).catch(() => {});
+        if (pc?.remoteDescription) await pc.addIceCandidate(message.candidate).catch(() => {});
+        else pendingIce.push(message.candidate);
       }
     })
     .subscribe((status) => {
       if (status === "SUBSCRIBED") {
         onStatus("connecting");
-        void send({ type: "camera-join", from: me, slot, token });
+        requestJoin();
+        joinTimer = setInterval(requestJoin, 2000);
       }
     });
 
   return () => {
+    closed = true;
+    if (joinTimer) clearInterval(joinTimer);
+    if (connectionTimer) clearTimeout(connectionTimer);
     void send({ type: "camera-leave", from: me, slot });
     pc?.close();
     void supabase.removeChannel(channel);

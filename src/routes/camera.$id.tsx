@@ -50,6 +50,11 @@ function RemoteCameraPage() {
     }
     try {
       setError("");
+      leaveRef.current?.();
+      leaveRef.current = null;
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+      setStatus("connecting");
       const media = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } },
         audio: false,
@@ -57,7 +62,7 @@ function RemoteCameraPage() {
       streamRef.current = media;
       if (videoRef.current) {
         videoRef.current.srcObject = media;
-        await videoRef.current.play();
+        void videoRef.current.play().catch(() => {});
       }
       leaveRef.current = joinAsRemoteCamera(id, slot, token, media, setStatus);
     } catch (cause) {
@@ -111,12 +116,12 @@ function RemoteCameraPage() {
               {status === "ready"
                 ? "This phone will send video only. Camera 1 remains the sound source."
                 : status === "connecting"
-                  ? "Connecting to the main broadcast…"
+                    ? "Connecting to the main broadcast… Keep this phone open while it connects."
                   : connected
                     ? "Your video is ready. The broadcaster can select this shot."
                     : status === "ended"
                       ? "The live broadcast has ended."
-                      : "Camera disconnected."}
+                      : "Camera disconnected. Tap Connect camera to try again."}
             </p>
           </div>
         </div>
