@@ -27,6 +27,8 @@ export function LiveSpeechControls({ onCaption, onApprove, imageUrl }: {
   const recognitionRef = useRef<Recognition | null>(null);
   const wantedRef = useRef(false);
   const lastRef = useRef("");
+  const lastAtRef = useRef(0);
+  const recentRef = useRef("");
   const toggleButtonRef = useRef<HTMLButtonElement | null>(null);
   const approveButtonRef = useRef<HTMLButtonElement | null>(null);
   const onCaptionRef = useRef(onCaption);
@@ -86,9 +88,12 @@ export function LiveSpeechControls({ onCaption, onApprove, imageUrl }: {
         const text = result[0].transcript.trim();
         if (result.isFinal) {
           onCaptionRef.current(text);
-          const reference = spokenReference(text);
-          if (reference && reference !== lastRef.current) {
+          const recent = `${recentRef.current} ${text}`.trim();
+          recentRef.current = text;
+          const reference = spokenReference(text) ?? spokenReference(recent);
+          if (reference && (reference !== lastRef.current || Date.now() - lastAtRef.current > 20000)) {
             lastRef.current = reference;
+            lastAtRef.current = Date.now();
             setStatus(`Looking up ${reference}…`);
             void lookupSpokenVerse(reference).then((verse) => {
               if (verse) { setCandidate(verse); setStatus(""); }
@@ -124,7 +129,7 @@ export function LiveSpeechControls({ onCaption, onApprove, imageUrl }: {
       </Button>
     </div>
     {!supported ? <p className="text-xs text-muted-foreground">Speech recognition is unavailable in this browser. Try Chrome or Edge, or search verses manually below.</p> :
-      <p className="text-xs text-muted-foreground">Captions follow your voice. Say a reference such as “John chapter three verse sixteen” to review the verse before showing it.</p>}
+      <p className="text-xs text-muted-foreground">Captions follow your voice. Say a reference such as “John 3:16” or “Romans chapter 8 verse 28” to review the verse before showing it.</p>}
     {status && <p role="status" className="text-xs text-muted-foreground">{status}</p>}
     {candidate ? <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 p-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) dismissCandidate(); }}>
       <div className="w-full max-w-lg space-y-4 rounded-md border border-primary bg-background p-5" role="alertdialog" aria-modal="true" aria-labelledby="spoken-verse-title" aria-describedby="spoken-verse-text">
