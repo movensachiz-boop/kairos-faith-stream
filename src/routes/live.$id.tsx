@@ -6,6 +6,7 @@ import { AppShell, SectionCard } from "@/components/layout/AppShell";
 import { supabase } from "@/integrations/supabase/client";
 import { joinAsViewer } from "@/lib/broadcast";
 import { LiveComments } from "@/components/live/LiveComments";
+import { elapsedLiveTime } from "@/lib/live-time";
 
 export const Route = createFileRoute("/live/$id")({
   head: () => ({
@@ -28,6 +29,12 @@ function WatchPage() {
   const [status, setStatus] = useState<"connecting" | "playing" | "ended">("connecting");
   const [muted, setMuted] = useState(true);
   const [expanded, setExpanded] = useState(false);
+  const [clock, setClock] = useState(Date.now());
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setClock(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     const onChange = () => setExpanded(Boolean(document.fullscreenElement));
@@ -88,17 +95,17 @@ function WatchPage() {
       <div className="mx-auto max-w-3xl space-y-5">
         <div
           ref={shellRef}
-          className={`relative overflow-hidden ${expanded ? "flex h-full w-full items-center justify-center bg-ink" : "rounded-2xl glass"}`}
+          className={`relative aspect-video overflow-hidden ${expanded ? "flex h-full w-full items-center justify-center bg-ink" : "rounded-md glass"}`}
         >
           <video
             ref={videoRef}
             playsInline
             muted={muted}
-            className={expanded ? "h-full w-full bg-ink object-contain" : "aspect-video w-full bg-ink object-cover"}
+            className="h-full w-full bg-ink object-contain"
           />
           {!ended && status === "playing" ? (
             <span className="absolute left-3 top-3 flex items-center gap-2 rounded-md bg-live px-3 py-1 text-xs font-bold text-destructive-foreground">
-              <span className="live-dot" /> LIVE
+              <span className="live-dot" /> LIVE · {elapsedLiveTime(s?.started_at, clock)}
             </span>
           ) : null}
           {status !== "playing" || ended ? (

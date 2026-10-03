@@ -50,8 +50,9 @@ async function searchScripture(q: string): Promise<Result[]> {
   return (data ?? []).map((v) => ({ key: v.id, reference: `${v.book} ${v.chapter}:${v.verse}`, text: v.text }));
 }
 
-export function VersePanel({ active, onShow, onClear }: {
+export function VersePanel({ active, selected, onShow, onClear }: {
   active: boolean;
+  selected: boolean;
   onShow: (slide: VerseSlide) => Promise<void>;
   onClear: () => Promise<void>;
 }) {
@@ -76,10 +77,10 @@ export function VersePanel({ active, onShow, onClear }: {
     <section className="space-y-4 border-y border-border py-4" aria-label="Verse display">
       <div className="flex items-center justify-between gap-3">
         <h3 className="flex items-center gap-2 font-display text-sm font-semibold"><BookOpen className="size-4" /> Verses on screen</h3>
-        {active ? <Button type="button" variant="outline" size="sm" onClick={onClear}><X /> Remove verse</Button> : null}
+        {selected ? <Button type="button" variant="outline" size="sm" onClick={onClear}><X /> {active ? "Remove verse" : "Clear selection"}</Button> : null}
       </div>
       <input aria-label="Search Bible verses" value={input} onChange={(e) => setInput(e.target.value)} placeholder='Type a reference like "John 3:16" or "Psalm 23" — or a word' className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-1 focus-visible:ring-ring" />
-      <p className="text-xs text-muted-foreground">Tap a verse and it goes on screen straight away.</p>
+      <p className="text-xs text-muted-foreground">{active ? "Tap a verse to change what is on screen." : "Choose a verse before going live; it will appear as soon as you start."}</p>
       <div className="max-h-56 space-y-1 overflow-y-auto" aria-label="Available verses">
         {results.isFetching ? <p className="text-xs text-muted-foreground">Searching…</p> : null}
         {(results.data ?? []).map((v) => (
@@ -102,7 +103,7 @@ export function VersePanel({ active, onShow, onClear }: {
         <div className="mt-2 space-y-2">
           <textarea value={text} onChange={(e) => setText(e.target.value)} rows={3} placeholder="Verse text" className="w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-sm outline-none" />
           <input value={reference} onChange={(e) => setReference(e.target.value)} placeholder="Reference, e.g. Psalm 23:1" className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none" />
-          <Button type="button" className="w-full" disabled={!text.trim() || !reference.trim() || busy} onClick={() => show()}>{active ? "Update verse on screen" : "Show verse on screen"}</Button>
+          <Button type="button" className="w-full" disabled={!text.trim() || !reference.trim() || busy} onClick={() => show()}>{active ? "Update verse on screen" : "Select verse for live"}</Button>
         </div>
       </details>
       <div className="relative aspect-video overflow-hidden rounded-md bg-foreground">

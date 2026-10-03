@@ -495,21 +495,21 @@ function CreatePage() {
                           node.srcObject = streamRef.current;
                           void node.play().catch(() => {});
                         }
-                    className="h-full w-full object-contain" />}
+                      }} className="h-full w-full object-contain" />}
                       onSelect={() => selectCamera(1)}
                     />
                     <CameraTile
                       slot={2}
                       active={activeCamera === 2}
                       connected={cameraStatus[2] === "connected"}
-                      preview={<video ref={camera2Ref} muted playsInline className="h-full w-full object-cover" />}
+                      preview={<video ref={camera2Ref} muted playsInline className="h-full w-full object-contain" />}
                       onSelect={() => selectCamera(2)}
                     />
                     <CameraTile
                       slot={3}
                       active={activeCamera === 3}
                       connected={cameraStatus[3] === "connected"}
-                      preview={<video ref={camera3Ref} muted playsInline className="h-full w-full object-cover" />}
+                      preview={<video ref={camera3Ref} muted playsInline className="h-full w-full object-contain" />}
                       onSelect={() => selectCamera(3)}
                     />
                    </div> : null}
