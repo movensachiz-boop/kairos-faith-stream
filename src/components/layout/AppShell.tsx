@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import { Bell, BookOpen, CircleUserRound, House, Plus, Radio, Video } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth, initials } from "@/hooks/useAuth";
+import logoAsset from "@/assets/kairos-logo.png.asset.json";
 
 const desktopNav = [
   { to: "/", label: "Home" },
@@ -37,9 +38,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       <header className="sticky top-0 z-30 px-4 pt-4">
         <div className="glass-strong mx-auto flex max-w-7xl items-center gap-4 rounded-md px-4 py-3">
           <Link to="/" className="flex shrink-0 items-center gap-2.5">
-            <span className="brand-mark grid size-9 place-items-center rounded-md font-display text-lg font-bold text-primary-foreground">
-              K
-            </span>
+            <img src={logoAsset.url} alt="KAIROS logo" className="size-9 rounded-md" />
             <span className="leading-none">
               <span className="block font-display text-[15px] font-bold tracking-tight">KAIROS APP</span>
               <span className="block text-[10px] tracking-wide text-muted-foreground">
