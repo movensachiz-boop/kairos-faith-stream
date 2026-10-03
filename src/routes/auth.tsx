@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable/index";
 import { ensureGuestUser, GUEST_EMAIL, GUEST_PASSWORD } from "@/lib/guest.functions";
+import logoAsset from "@/assets/kairos-logo.png.asset.json";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
