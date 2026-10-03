@@ -20,6 +20,8 @@ import { Route as MinistriesRouteImport } from './routes/ministries'
 import { Route as AuthenticatedCreateRouteImport } from './routes/_authenticated/create'
 import { Route as AuthenticatedNotificationsRouteImport } from './routes/_authenticated/notifications'
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
+import { Route as CallIndexRouteImport } from './routes/call.index'
+import { Route as CallRoomRouteImport } from './routes/call.$room'
 import { Route as CameraIdRouteImport } from './routes/camera.$id'
 import { Route as LiveIndexRouteImport } from './routes/live.index'
 import { Route as LiveIdRouteImport } from './routes/live.$id'
@@ -79,6 +81,16 @@ const AuthenticatedProfileRoute = AuthenticatedProfileRouteImport.update({
   path: '/profile',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const CallIndexRoute = CallIndexRouteImport.update({
+  id: '/call/',
+  path: '/call/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CallRoomRoute = CallRoomRouteImport.update({
+  id: '/call/$room',
+  path: '/call/$room',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CameraIdRoute = CameraIdRouteImport.update({
   id: '/camera/$id',
   path: '/camera/$id',
@@ -106,8 +118,10 @@ export interface FileRoutesByFullPath {
   '/create': typeof AuthenticatedCreateRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
   '/profile': typeof AuthenticatedProfileRoute
+  '/call/$room': typeof CallRoomRoute
   '/camera/$id': typeof CameraIdRoute
   '/live/$id': typeof LiveIdRoute
+  '/call/': typeof CallIndexRoute
   '/live/': typeof LiveIndexRoute
 }
 export interface FileRoutesByTo {
@@ -121,8 +135,10 @@ export interface FileRoutesByTo {
   '/create': typeof AuthenticatedCreateRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
   '/profile': typeof AuthenticatedProfileRoute
+  '/call/$room': typeof CallRoomRoute
   '/camera/$id': typeof CameraIdRoute
   '/live/$id': typeof LiveIdRoute
+  '/call': typeof CallIndexRoute
   '/live': typeof LiveIndexRoute
 }
 export interface FileRoutesById {
@@ -138,8 +154,10 @@ export interface FileRoutesById {
   '/_authenticated/create': typeof AuthenticatedCreateRoute
   '/_authenticated/notifications': typeof AuthenticatedNotificationsRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
+  '/call/$room': typeof CallRoomRoute
   '/camera/$id': typeof CameraIdRoute
   '/live/$id': typeof LiveIdRoute
+  '/call/': typeof CallIndexRoute
   '/live/': typeof LiveIndexRoute
 }
 export interface FileRouteTypes {
@@ -155,8 +173,10 @@ export interface FileRouteTypes {
     | '/create'
     | '/notifications'
     | '/profile'
+    | '/call/$room'
     | '/camera/$id'
     | '/live/$id'
+    | '/call/'
     | '/live/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -170,8 +190,10 @@ export interface FileRouteTypes {
     | '/create'
     | '/notifications'
     | '/profile'
+    | '/call/$room'
     | '/camera/$id'
     | '/live/$id'
+    | '/call'
     | '/live'
   id:
     | '__root__'
@@ -186,8 +208,10 @@ export interface FileRouteTypes {
     | '/_authenticated/create'
     | '/_authenticated/notifications'
     | '/_authenticated/profile'
+    | '/call/$room'
     | '/camera/$id'
     | '/live/$id'
+    | '/call/'
     | '/live/'
   fileRoutesById: FileRoutesById
 }
@@ -200,8 +224,10 @@ export interface RootRouteChildren {
   EventsRoute: typeof EventsRoute
   GivingRoute: typeof GivingRoute
   MinistriesRoute: typeof MinistriesRoute
+  CallRoomRoute: typeof CallRoomRoute
   CameraIdRoute: typeof CameraIdRoute
   LiveIdRoute: typeof LiveIdRoute
+  CallIndexRoute: typeof CallIndexRoute
   LiveIndexRoute: typeof LiveIndexRoute
 }
 
@@ -284,6 +310,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedProfileRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/call/': {
+      id: '/call/'
+      path: '/call'
+      fullPath: '/call/'
+      preLoaderRoute: typeof CallIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/call/$room': {
+      id: '/call/$room'
+      path: '/call/$room'
+      fullPath: '/call/$room'
+      preLoaderRoute: typeof CallRoomRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/camera/$id': {
       id: '/camera/$id'
       path: '/camera/$id'
@@ -332,8 +372,10 @@ const rootRouteChildren: RootRouteChildren = {
   EventsRoute: EventsRoute,
   GivingRoute: GivingRoute,
   MinistriesRoute: MinistriesRoute,
+  CallRoomRoute: CallRoomRoute,
   CameraIdRoute: CameraIdRoute,
   LiveIdRoute: LiveIdRoute,
+  CallIndexRoute: CallIndexRoute,
   LiveIndexRoute: LiveIndexRoute,
 }
 export const routeTree = rootRouteImport

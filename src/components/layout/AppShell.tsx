@@ -1,7 +1,8 @@
 import { Link, useNavigate } from "@tanstack/react-router";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { liveStreamsQuery } from "@/lib/kairos";
 import type { ReactNode } from "react";
-import { Bell, BookOpen, CircleUserRound, House, Plus, Radio } from "lucide-react";
+import { Bell, BookOpen, CircleUserRound, House, Plus, Radio, Video } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth, initials } from "@/hooks/useAuth";
 
@@ -13,6 +14,7 @@ const desktopNav = [
   { to: "/create", label: "Create" },
   { to: "/ministries", label: "Ministries" },
   { to: "/events", label: "Events" },
+  { to: "/call", label: "Calls" },
   { to: "/giving", label: "Giving" },
 ] as const;
 
@@ -20,6 +22,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   const { user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const streams = useQuery(liveStreamsQuery());
+  const liveNow = (streams.data ?? []).find((s: any) => s.is_live) as any;
 
   async function signOut() {
     await queryClient.cancelQueries();
@@ -94,6 +98,21 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
       </header>
 
+      {liveNow ? (
+        <div className="mx-auto mt-3 max-w-7xl px-4">
+          <Link
+            to="/live/$id"
+            params={{ id: liveNow.id }}
+            className="flex items-center gap-3 rounded-md bg-destructive px-4 py-2.5 text-sm text-destructive-foreground"
+          >
+            <span className="size-2.5 rounded-full bg-destructive-foreground" />
+            <span className="font-bold">LIVE NOW</span>
+            <span className="truncate">{liveNow.title}</span>
+            <span className="ml-auto shrink-0 font-semibold">Watch ▶</span>
+          </Link>
+        </div>
+      ) : null}
+
       <main className="mx-auto max-w-7xl px-4 py-6">{children}</main>
 
       <nav className="fixed inset-x-0 bottom-0 z-30 px-4 pb-4 lg:hidden">
@@ -106,6 +125,9 @@ export function AppShell({ children }: { children: ReactNode }) {
           </Link>
           <Link to="/bible" className="flex flex-col items-center gap-0.5 text-[10px] text-muted-foreground">
             <BookOpen className="size-4" /><span>Bible</span>
+          </Link>
+          <Link to="/call" className="flex flex-col items-center gap-0.5 text-[10px] text-muted-foreground" activeProps={{ className: "text-primary" }}>
+            <Video className="size-4" /><span>Call</span>
           </Link>
           <Link to="/create" className="flex flex-col items-center gap-0.5 text-[10px]">
             <span className="brand-mark -mt-6 grid size-9 place-items-center rounded-full font-bold text-primary-foreground">

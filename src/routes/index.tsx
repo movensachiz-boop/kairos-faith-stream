@@ -84,7 +84,7 @@ function Home() {
               <div className="absolute left-3 top-3 flex items-center gap-2">
                 <span className="live-dot size-2.5 rounded-full bg-destructive" />
                 <span className="rounded-full bg-ink/60 px-2.5 py-1 text-xs font-semibold tracking-wide">
-                  {liveNow?.is_live ? "LIVE" : "REPLAY"}
+                  {liveNow?.is_live ? "LIVE NOW" : "NO LIVE RIGHT NOW"}
                 </span>
                 <span className="rounded-full bg-ink/60 px-2.5 py-1 text-xs text-muted-foreground">
                   {liveNow?.viewer_count ?? 0} watching
@@ -117,9 +117,15 @@ function Home() {
                   {liveNow?.scripture_ref ?? "Streaming not connected yet"}
                 </div>
               </div>
-              <Link to="/live" className="glass ml-auto rounded-lg px-3 py-2 text-xs">
-                Open Live
-              </Link>
+              {liveNow?.is_live ? (
+                <Link to="/live/$id" params={{ id: liveNow.id }} className="ml-auto rounded-md bg-destructive px-4 py-2 text-xs font-bold text-destructive-foreground">
+                  ▶ Watch now
+                </Link>
+              ) : (
+                <Link to="/live" className="glass ml-auto rounded-lg px-3 py-2 text-xs">
+                  Open Live
+                </Link>
+              )}
             </div>
           </div>
 
