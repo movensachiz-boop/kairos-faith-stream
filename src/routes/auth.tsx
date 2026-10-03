@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable/index";
 import { ensureGuestUser, GUEST_EMAIL, GUEST_PASSWORD } from "@/lib/guest.functions";
+import logoAsset from "@/assets/kairos-logo.png.asset.json";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -92,9 +93,7 @@ function AuthPage() {
     <div className="flex min-h-screen items-center justify-center px-4 py-10">
       <div className="glass-strong w-full max-w-md rounded-3xl p-7">
         <Link to="/" className="mb-6 flex items-center gap-2.5">
-          <span className="brand-mark grid size-9 place-items-center rounded-xl font-display text-lg font-bold text-ink">
-            K
-          </span>
+          <img src={logoAsset.url} alt="KAIROS logo" className="size-9 rounded-xl" />
           <span className="leading-none">
             <span className="block font-display text-[15px] font-bold tracking-tight">KAIROS APP</span>
             <span className="block text-[10px] text-muted-foreground">Connect. Grow. Share. Give.</span>
