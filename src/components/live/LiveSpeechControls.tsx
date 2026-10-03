@@ -18,7 +18,7 @@ type RecognitionWindow = Window & { SpeechRecognition?: new () => Recognition; w
 export function LiveSpeechControls({ onCaption, onApprove, imageUrl }: {
   onCaption: (text: string) => void;
   onApprove: (slide: VerseSlide) => Promise<void>;
-  imageUrl?: string;
+  imageUrl?: string | undefined;
 }) {
   const [supported, setSupported] = useState(true);
   const [listening, setListening] = useState(false);
