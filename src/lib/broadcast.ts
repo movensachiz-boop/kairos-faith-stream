@@ -126,7 +126,9 @@ export function startHost(
       if (cameraPeers.get(slot)?.pc !== pc) return;
       const stream = event.streams[0] ?? new MediaStream([event.track]);
       remoteCameras.set(slot, stream);
-      onCamera(slot, stream, "connected");
+      // ontrack can fire before ICE connects; wait until frames can actually arrive.
+      onCamera(slot, stream, pc.connectionState === "connected" ? "connected" : "connecting");
+      event.track.onunmute = () => { if (cameraPeers.get(slot)?.pc === pc) onCamera(slot, stream, "connected"); };
       event.track.onended = () => { if (cameraPeers.get(slot)?.pc === pc) disconnectCamera(slot); };
     };
     pc.onicecandidate = (event) => {
@@ -135,6 +137,9 @@ export function startHost(
       }
     };
     pc.onconnectionstatechange = () => {
+      if (cameraPeers.get(slot)?.pc === pc && pc.connectionState === "connected") {
+        onCamera(slot, remoteCameras.get(slot) ?? null, "connected");
+      }
       if (cameraPeers.get(slot)?.pc === pc && ["failed", "closed", "disconnected"].includes(pc.connectionState)) disconnectCamera(slot);
     };
     const offer = await pc.createOffer();
@@ -346,6 +351,7 @@ export function joinAsRemoteCamera(
   let closed = false;
   let connected = false;
   let joinTimer: ReturnType<typeof setInterval> | null = null;
+  let connectionTimer: ReturnType<typeof setTimeout> | null = null;
   const pendingIce: RTCIceCandidateInit[] = [];
   const channel = cameraChannel(streamId);
   const send = (payload: CameraSignal) => channel.send({ type: "broadcast", event: "camera-signal", payload });
@@ -358,6 +364,7 @@ export function joinAsRemoteCamera(
       const message = payload as CameraSignal;
       if (message.type === "broadcast-end") {
         if (joinTimer) clearInterval(joinTimer);
+        if (connectionTimer) clearTimeout(connectionTimer);
         onStatus("ended");
       } else if (message.type === "camera-offer" && message.to === me && message.slot === slot) {
         pc?.close();
@@ -376,6 +383,7 @@ export function joinAsRemoteCamera(
           if (peer.connectionState === "connected") {
             connected = true;
             if (joinTimer) clearInterval(joinTimer);
+            if (connectionTimer) clearTimeout(connectionTimer);
             onStatus("connected");
           } else if (["failed", "closed", "disconnected"].includes(peer.connectionState)) {
             connected = false;
@@ -388,6 +396,13 @@ export function joinAsRemoteCamera(
         const answer = await peer.createAnswer();
         await peer.setLocalDescription(answer);
         await send({ type: "camera-answer", from: me, slot, sdp: answer });
+        if (connectionTimer) clearTimeout(connectionTimer);
+        connectionTimer = setTimeout(() => {
+          if (closed || peer !== pc || connected) return;
+          peer.close();
+          onStatus("connecting");
+          requestJoin();
+        }, 12000);
       } else if (message.type === "camera-ice" && message.to === me && message.slot === slot) {
         if (pc?.remoteDescription) await pc.addIceCandidate(message.candidate).catch(() => {});
         else pendingIce.push(message.candidate);
@@ -404,6 +419,7 @@ export function joinAsRemoteCamera(
   return () => {
     closed = true;
     if (joinTimer) clearInterval(joinTimer);
+    if (connectionTimer) clearTimeout(connectionTimer);
     void send({ type: "camera-leave", from: me, slot });
     pc?.close();
     void supabase.removeChannel(channel);
