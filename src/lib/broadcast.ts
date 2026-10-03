@@ -54,6 +54,7 @@ export function startHost(
 ): HostController {
   const viewers = new Map<string, RTCPeerConnection>();
   const cameraPeers = new Map<CameraSlot, { id: string; pc: RTCPeerConnection }>();
+  const cameraIce = new Map<CameraSlot, RTCIceCandidateInit[]>();
   const remoteCameras = new Map<CameraSlot, MediaStream>();
   const mainVideo = media.getVideoTracks()[0] ?? null;
   let activeVideo = mainVideo;
@@ -116,6 +117,7 @@ export function startHost(
       previous.pc.close();
     }
     remoteCameras.delete(slot);
+    cameraIce.delete(slot);
     onCamera(slot, null, "connecting");
     const pc = new RTCPeerConnection(ICE);
     cameraPeers.set(slot, { id, pc });
@@ -145,6 +147,7 @@ export function startHost(
     entry?.pc.close();
     cameraPeers.delete(slot);
     remoteCameras.delete(slot);
+    cameraIce.delete(slot);
     onCamera(slot, null, "disconnected");
     if (activeSlot === slot) void useCamera(1);
   }
@@ -183,10 +186,17 @@ export function startHost(
         await addRemoteCamera(message.from, message.slot, message.token);
       } else if (message.type === "camera-answer") {
         const camera = cameraPeers.get(message.slot);
-        if (camera?.id === message.from) await camera.pc.setRemoteDescription(message.sdp);
+        if (camera?.id === message.from) {
+          await camera.pc.setRemoteDescription(message.sdp);
+          for (const candidate of cameraIce.get(message.slot) ?? []) await camera.pc.addIceCandidate(candidate).catch(() => {});
+          cameraIce.delete(message.slot);
+        }
       } else if (message.type === "camera-ice" && message.from) {
         const camera = cameraPeers.get(message.slot);
-        if (camera?.id === message.from) await camera.pc.addIceCandidate(message.candidate).catch(() => {});
+        if (camera?.id === message.from) {
+          if (camera.pc.remoteDescription) await camera.pc.addIceCandidate(message.candidate).catch(() => {});
+          else cameraIce.set(message.slot, [...(cameraIce.get(message.slot) ?? []), message.candidate]);
+        }
       } else if (message.type === "camera-leave") {
         const camera = cameraPeers.get(message.slot);
         if (camera?.id === message.from) disconnectCamera(message.slot);
