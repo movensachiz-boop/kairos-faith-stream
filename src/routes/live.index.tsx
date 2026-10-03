@@ -10,6 +10,8 @@ export const Route = createFileRoute("/live/")({
       { name: "description", content: "Watch live church services and sermons from ministries on KAIROS APP." },
       { property: "og:title", content: "Live services — KAIROS APP" },
       { property: "og:description", content: "Join live worship, sermons and Bible teaching as they happen." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: LivePage,

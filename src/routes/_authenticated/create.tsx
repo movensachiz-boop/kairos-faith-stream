@@ -277,6 +277,7 @@ function CreatePage() {
           .select("id")
           .single();
         if (created.error) {
+          if (posterPath) void supabase.storage.from("live-posters").remove([posterPath]);
           setBusy(false);
           toast.error(created.error.message);
           return;
@@ -441,13 +442,13 @@ function CreatePage() {
             <div className="space-y-3">
               <div
                 ref={shellRef}
-                className={`relative overflow-hidden ${expanded ? "flex h-full w-full items-center justify-center bg-ink" : "rounded-md border border-border"}`}
+                className={`relative aspect-video overflow-hidden ${expanded ? "flex h-full w-full items-center justify-center bg-ink" : "rounded-md border border-border"}`}
               >
                 <video
                   ref={videoRef}
                   muted
                   playsInline
-                  className={expanded ? "h-full w-full bg-ink object-contain" : "aspect-video w-full bg-ink object-contain"}
+                  className="h-full w-full bg-ink object-contain"
                 />
                 {liveId ? (
                   <span className="absolute left-3 top-3 flex items-center gap-2 rounded-md bg-live px-3 py-1 text-xs font-bold text-destructive-foreground">

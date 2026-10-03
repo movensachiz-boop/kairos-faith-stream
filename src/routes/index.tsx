@@ -21,6 +21,8 @@ export const Route = createFileRoute("/")({
         property: "og:description",
         content: "The Christian platform for live services, Bible study, ministries, prayer and digital giving.",
       },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: Home,
