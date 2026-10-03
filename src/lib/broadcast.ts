@@ -128,7 +128,9 @@ export function startHost(
       remoteCameras.set(slot, stream);
       // ontrack can fire before ICE connects; wait until frames can actually arrive.
       onCamera(slot, stream, pc.connectionState === "connected" ? "connected" : "connecting");
-      event.track.onunmute = () => { if (cameraPeers.get(slot)?.pc === pc) onCamera(slot, stream, "connected"); };
+      event.track.onunmute = () => {
+        if (cameraPeers.get(slot)?.pc === pc && pc.connectionState === "connected") onCamera(slot, stream, "connected");
+      };
       event.track.onended = () => { if (cameraPeers.get(slot)?.pc === pc) disconnectCamera(slot); };
     };
     pc.onicecandidate = (event) => {
