@@ -109,7 +109,12 @@ export function startHost(
 
   async function addRemoteCamera(id: string, slot: CameraSlot, token: string) {
     if (tokens[slot] !== token) return;
-    cameraPeers.get(slot)?.pc.close();
+    const previous = cameraPeers.get(slot);
+    if (previous?.id === id && previous.pc.connectionState !== "failed" && previous.pc.connectionState !== "closed") return;
+    if (previous) {
+      previous.pc.onconnectionstatechange = null;
+      previous.pc.close();
+    }
     remoteCameras.delete(slot);
     onCamera(slot, null, "connecting");
     const pc = new RTCPeerConnection(ICE);
@@ -127,7 +132,7 @@ export function startHost(
       }
     };
     pc.onconnectionstatechange = () => {
-      if (["failed", "closed", "disconnected"].includes(pc.connectionState)) disconnectCamera(slot);
+      if (cameraPeers.get(slot)?.pc === pc && ["failed", "closed", "disconnected"].includes(pc.connectionState)) disconnectCamera(slot);
     };
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
@@ -136,6 +141,7 @@ export function startHost(
 
   function disconnectCamera(slot: CameraSlot) {
     const entry = cameraPeers.get(slot);
+    if (entry) entry.pc.onconnectionstatechange = null;
     entry?.pc.close();
     cameraPeers.delete(slot);
     remoteCameras.delete(slot);
@@ -326,48 +332,67 @@ export function joinAsRemoteCamera(
 ) {
   const me = `camera-${slot}-${crypto.randomUUID()}`;
   let pc: RTCPeerConnection | null = null;
+  let closed = false;
+  let connected = false;
+  let joinTimer: ReturnType<typeof setInterval> | null = null;
+  const pendingIce: RTCIceCandidateInit[] = [];
   const channel = cameraChannel(streamId);
   const send = (payload: CameraSignal) => channel.send({ type: "broadcast", event: "camera-signal", payload });
+  const requestJoin = () => {
+    if (!closed && !connected) void send({ type: "camera-join", from: me, slot, token });
+  };
 
   channel
     .on("broadcast", { event: "camera-signal" }, async ({ payload }) => {
       const message = payload as CameraSignal;
       if (message.type === "broadcast-end") {
+        if (joinTimer) clearInterval(joinTimer);
         onStatus("ended");
       } else if (message.type === "camera-offer" && message.to === me && message.slot === slot) {
+        if (joinTimer) clearInterval(joinTimer);
         pc?.close();
         pc = new RTCPeerConnection(ICE);
+        const peer = pc;
         const track = media.getVideoTracks()[0];
         if (!track) return;
-        pc.addTrack(track, media);
-        pc.onicecandidate = (event) => {
+        peer.addTrack(track, media);
+        peer.onicecandidate = (event) => {
           if (event.candidate) {
             void send({ type: "camera-ice", from: me, slot, candidate: event.candidate.toJSON() });
           }
         };
-        pc.onconnectionstatechange = () => {
-          if (pc?.connectionState === "connected") onStatus("connected");
-          else if (pc && ["failed", "closed", "disconnected"].includes(pc.connectionState)) {
+        peer.onconnectionstatechange = () => {
+          if (closed || peer !== pc) return;
+          if (peer.connectionState === "connected") {
+            connected = true;
+            onStatus("connected");
+          } else if (["failed", "closed", "disconnected"].includes(peer.connectionState)) {
+            connected = false;
             onStatus("disconnected");
+            if (peer.connectionState === "failed") requestJoin();
           }
         };
-        await pc.setRemoteDescription(message.sdp);
-        const answer = await pc.createAnswer();
-        await pc.setLocalDescription(answer);
+        await peer.setRemoteDescription(message.sdp);
+        for (const candidate of pendingIce.splice(0)) await peer.addIceCandidate(candidate).catch(() => {});
+        const answer = await peer.createAnswer();
+        await peer.setLocalDescription(answer);
         await send({ type: "camera-answer", from: me, slot, sdp: answer });
-        onStatus("connected");
       } else if (message.type === "camera-ice" && message.to === me && message.slot === slot) {
-        await pc?.addIceCandidate(message.candidate).catch(() => {});
+        if (pc?.remoteDescription) await pc.addIceCandidate(message.candidate).catch(() => {});
+        else pendingIce.push(message.candidate);
       }
     })
     .subscribe((status) => {
       if (status === "SUBSCRIBED") {
         onStatus("connecting");
-        void send({ type: "camera-join", from: me, slot, token });
+        requestJoin();
+        joinTimer = setInterval(requestJoin, 2000);
       }
     });
 
   return () => {
+    closed = true;
+    if (joinTimer) clearInterval(joinTimer);
     void send({ type: "camera-leave", from: me, slot });
     pc?.close();
     void supabase.removeChannel(channel);
