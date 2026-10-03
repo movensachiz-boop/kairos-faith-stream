@@ -1,0 +1,1 @@
+CREATE POLICY "listed live posters can be viewed" ON storage.objects FOR SELECT TO anon, authenticated USING (bucket_id = 'live-posters' AND EXISTS (SELECT 1 FROM public.live_streams AS live WHERE live.thumbnail_url = storage.objects.name));

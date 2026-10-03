@@ -10,6 +10,8 @@ export const Route = createFileRoute("/live/")({
       { name: "description", content: "Watch live church services and sermons from ministries on KAIROS APP." },
       { property: "og:title", content: "Live services — KAIROS APP" },
       { property: "og:description", content: "Join live worship, sermons and Bible teaching as they happen." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: LivePage,
@@ -37,9 +39,10 @@ function LivePage() {
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {list.map((s: any) => (
                 <Link key={s.id} to="/live/$id" params={{ id: s.id }} className="glass block overflow-hidden rounded-2xl">
-                  <div className="flex aspect-video items-center justify-center bg-foreground/5">
+                   <div className="relative flex aspect-video items-center justify-center bg-secondary">
+                     {s.thumbnail_url ? <img src={`/api/public/live-poster/${s.id}`} alt={`${s.title} poster`} className="absolute inset-0 h-full w-full object-contain" /> : null}
                     <span className="text-xs text-muted-foreground">
-                      {s.is_live ? "▶ Tap to watch live" : "Ended"}
+                       {!s.thumbnail_url ? (s.is_live ? "▶ Tap to watch live" : "Ended") : null}
                     </span>
                   </div>
                   <div className="p-4">

@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import QRCode from "qrcode";
-import { Camera, Check, Link2, Maximize2, Minimize2, Radio, Smartphone } from "lucide-react";
+import { Camera, Check, ImagePlus, Link2, Maximize2, Minimize2, Radio, Smartphone } from "lucide-react";
 import { AppShell, SectionCard } from "@/components/layout/AppShell";
 import { Button } from "@/components/ui/button";
 import { ministriesQuery } from "@/lib/kairos";
@@ -13,6 +13,7 @@ import { startHost, type CameraSlot, type CameraStatus, type HostController } fr
 import { LiveComments } from "@/components/live/LiveComments";
 import { VersePanel } from "@/components/live/VersePanel";
 import type { VerseSlide } from "@/lib/verse-stage";
+import { elapsedLiveTime } from "@/lib/live-time";
 
 export const Route = createFileRoute("/_authenticated/create")({
   head: () => ({
@@ -21,6 +22,8 @@ export const Route = createFileRoute("/_authenticated/create")({
       { name: "description", content: "Share a word, a sermon, a testimony, go live or send a prayer request." },
       { property: "og:title", content: "Create — KAIROS APP" },
       { property: "og:description", content: "Publish Christian content to the KAIROS community." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: CreatePage,
@@ -51,6 +54,11 @@ function CreatePage() {
   const [cameraOn, setCameraOn] = useState(false);
   const [liveId, setLiveId] = useState<string | null>(null);
   const [liveTitle, setLiveTitle] = useState("");
+  const [poster, setPoster] = useState<File | null>(null);
+  const [posterPreview, setPosterPreview] = useState<string | null>(null);
+  const [selectedVerse, setSelectedVerse] = useState<VerseSlide | null>(null);
+  const [startedAt, setStartedAt] = useState<string | null>(null);
+  const [clock, setClock] = useState(Date.now());
   const hostRef = useRef<HostController | null>(null);
   const [viewers, setViewers] = useState(0);
   const [activeCamera, setActiveCamera] = useState<1 | CameraSlot>(1);
@@ -94,6 +102,14 @@ function CreatePage() {
     hostRef.current?.stop();
     stopCamera();
   }, []);
+
+  useEffect(() => {
+    if (!startedAt) return;
+    const timer = window.setInterval(() => setClock(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [startedAt]);
+
+  useEffect(() => () => { if (posterPreview) URL.revokeObjectURL(posterPreview); }, [posterPreview]);
 
   useEffect(() => {
     if (voiceGainRef.current) voiceGainRef.current.gain.value = voiceVol / 100;
@@ -189,7 +205,7 @@ function CreatePage() {
   async function startCamera() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: true,
+        video: { width: { ideal: 1280 }, height: { ideal: 720 }, aspectRatio: { ideal: 16 / 9 } },
         audio: { echoCancellation: true, noiseSuppression: true },
       });
       streamRef.current = stream;
@@ -204,6 +220,30 @@ function CreatePage() {
     }
   }
 
+  async function pickPoster(file: File | undefined) {
+    if (!file) return;
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type) || file.size > 5 * 1024 * 1024) {
+      toast.error("Choose a JPG, PNG or WebP image under 5 MB.");
+      return;
+    }
+    const url = URL.createObjectURL(file);
+    const image = new Image();
+    image.src = url;
+    try {
+      await image.decode();
+      if (image.naturalWidth <= image.naturalHeight) {
+        toast.error("Please choose a landscape poster (wider than it is tall).");
+        URL.revokeObjectURL(url);
+        return;
+      }
+      setPoster(file);
+      setPosterPreview(url);
+    } catch {
+      URL.revokeObjectURL(url);
+      toast.error("This image could not be opened.");
+    }
+  }
+
   async function goLive() {
     if (!user) {
       toast.error("Sign in to go live.");
@@ -212,6 +252,16 @@ function CreatePage() {
     if (!streamRef.current) await startCamera();
     if (!streamRef.current) return;
     setBusy(true);
+    let posterPath: string | null = null;
+    if (poster) {
+      posterPath = `${user.id}/${crypto.randomUUID()}.${poster.type === "image/png" ? "png" : poster.type === "image/webp" ? "webp" : "jpg"}`;
+      const { error: uploadError } = await supabase.storage.from("live-posters").upload(posterPath, poster, { contentType: poster.type });
+      if (uploadError) {
+        setBusy(false);
+        toast.error(`Poster upload failed: ${uploadError.message}`);
+        return;
+      }
+    }
     let channelId = ministryId;
     if (!channelId) {
       // Personal live: use (or create) the user's own personal channel.
@@ -227,6 +277,7 @@ function CreatePage() {
           .select("id")
           .single();
         if (created.error) {
+          if (posterPath) void supabase.storage.from("live-posters").remove([posterPath]);
           setBusy(false);
           toast.error(created.error.message);
           return;
@@ -234,6 +285,7 @@ function CreatePage() {
         channelId = created.data.id;
       }
     }
+    const startTime = new Date().toISOString();
     const { data, error } = await supabase
       .from("live_streams")
       .insert({
@@ -241,16 +293,20 @@ function CreatePage() {
         ministry_id: channelId,
         title: liveTitle || "Live service",
         is_live: true,
-        started_at: new Date().toISOString(),
+        started_at: startTime,
+        thumbnail_url: posterPath,
       })
       .select("id")
       .single();
     setBusy(false);
     if (error) {
+      if (posterPath) void supabase.storage.from("live-posters").remove([posterPath]);
       toast.error(error.message);
       return;
     }
     setLiveId(data.id);
+    setStartedAt(startTime);
+    setClock(Date.now());
     hostRef.current = startHost(
       data.id,
       mixedRef.current ?? streamRef.current,
@@ -265,6 +321,10 @@ function CreatePage() {
         }
       },
     );
+    if (selectedVerse) {
+      try { await hostRef.current.showVerse(selectedVerse); setVerseOnScreen(true); }
+      catch { toast.error("The verse could not be shown. Camera 1 is still live."); }
+    }
     queryClient.invalidateQueries({ queryKey: ["live-streams"] });
     toast.success("You are live!");
   }
@@ -287,6 +347,7 @@ function CreatePage() {
     setShowCameraGrid(false);
     setCameraStatus({ 2: "waiting", 3: "waiting" });
     setLiveId(null);
+    setStartedAt(null);
     stopCamera();
     queryClient.invalidateQueries({ queryKey: ["live-streams"] });
     if (blob) {
@@ -304,17 +365,21 @@ function CreatePage() {
   async function selectCamera(slot: 1 | CameraSlot) {
     await hostRef.current?.useCamera(slot);
     setActiveCamera(slot);
-    if (verseOnScreen) { await hostRef.current?.showVerse(null); setVerseOnScreen(false); }
+    if (verseOnScreen) { await hostRef.current?.showVerse(null); setVerseOnScreen(false); setSelectedVerse(null); }
   }
 
   async function showVerse(slide: VerseSlide) {
-    await hostRef.current?.showVerse(slide);
-    setVerseOnScreen(true);
+    setSelectedVerse(slide);
+    if (hostRef.current) {
+      await hostRef.current.showVerse(slide);
+      setVerseOnScreen(true);
+    }
   }
 
   async function clearVerse() {
     await hostRef.current?.showVerse(null);
     setVerseOnScreen(false);
+    setSelectedVerse(null);
   }
 
   async function submit(e: React.FormEvent) {
@@ -377,17 +442,17 @@ function CreatePage() {
             <div className="space-y-3">
               <div
                 ref={shellRef}
-                className={`relative overflow-hidden ${expanded ? "flex h-full w-full items-center justify-center bg-ink" : "rounded-md border border-border"}`}
+                className={`relative aspect-video overflow-hidden ${expanded ? "flex h-full w-full items-center justify-center bg-ink" : "rounded-md border border-border"}`}
               >
                 <video
                   ref={videoRef}
                   muted
                   playsInline
-                  className={expanded ? "h-full w-full bg-ink object-contain" : "aspect-video w-full bg-ink object-cover"}
+                  className="h-full w-full bg-ink object-contain"
                 />
                 {liveId ? (
                   <span className="absolute left-3 top-3 flex items-center gap-2 rounded-md bg-live px-3 py-1 text-xs font-bold text-destructive-foreground">
-                    <span className="live-dot" /> LIVE · {viewers} watching
+                    <span className="live-dot" /> LIVE · {elapsedLiveTime(startedAt, clock)} · {viewers} watching
                   </span>
                 ) : null}
                 {!cameraOn ? (
@@ -431,21 +496,21 @@ function CreatePage() {
                           node.srcObject = streamRef.current;
                           void node.play().catch(() => {});
                         }
-                      }} className="h-full w-full object-cover" />}
+                      }} className="h-full w-full object-contain" />}
                       onSelect={() => selectCamera(1)}
                     />
                     <CameraTile
                       slot={2}
                       active={activeCamera === 2}
                       connected={cameraStatus[2] === "connected"}
-                      preview={<video ref={camera2Ref} muted playsInline className="h-full w-full object-cover" />}
+                      preview={<video ref={camera2Ref} muted playsInline className="h-full w-full object-contain" />}
                       onSelect={() => selectCamera(2)}
                     />
                     <CameraTile
                       slot={3}
                       active={activeCamera === 3}
                       connected={cameraStatus[3] === "connected"}
-                      preview={<video ref={camera3Ref} muted playsInline className="h-full w-full object-cover" />}
+                      preview={<video ref={camera3Ref} muted playsInline className="h-full w-full object-contain" />}
                       onSelect={() => selectCamera(3)}
                     />
                    </div> : null}
@@ -457,7 +522,7 @@ function CreatePage() {
                 </div>
               ) : null}
 
-               {liveId ? <VersePanel active={verseOnScreen} onShow={showVerse} onClear={clearVerse} /> : null}
+                <VersePanel active={verseOnScreen} selected={Boolean(selectedVerse)} onShow={showVerse} onClear={clearVerse} />
 
               {recording && !liveId ? (
                 <div className="glass-give space-y-2 rounded-md p-4">
@@ -474,6 +539,13 @@ function CreatePage() {
                 placeholder="Live title (e.g. Sunday Service)"
                 className="glass w-full rounded-xl px-4 py-3 text-sm outline-none placeholder:text-muted-foreground"
               />
+
+              {!liveId ? <div className="space-y-2">
+                <label className="text-sm font-semibold" htmlFor="live-poster">Landscape live poster (optional)</label>
+                <label htmlFor="live-poster" className="flex cursor-pointer items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm"><ImagePlus className="size-4" /> {poster ? poster.name : "Choose poster"}</label>
+                <input id="live-poster" type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={(event) => void pickPoster(event.target.files?.[0])} />
+                {posterPreview ? <img src={posterPreview} alt="Live poster preview" className="aspect-video w-full rounded-md border border-border object-contain" /> : null}
+              </div> : null}
 
               <select
                 value={ministryId}

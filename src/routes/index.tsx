@@ -21,6 +21,8 @@ export const Route = createFileRoute("/")({
         property: "og:description",
         content: "The Christian platform for live services, Bible study, ministries, prayer and digital giving.",
       },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: Home,
@@ -75,11 +77,11 @@ function Home() {
           <div className="glass-strong overflow-hidden rounded-3xl">
             <div className="relative">
               <img
-                src={liveService}
-                alt="Live worship service"
+                src={liveNow?.thumbnail_url ? `/api/public/live-poster/${liveNow.id}` : liveService}
+                alt={liveNow?.thumbnail_url ? `${liveNow.title} poster` : "Live worship service"}
                 width={1280}
                 height={720}
-                className="aspect-video w-full object-cover"
+                className="aspect-video w-full object-contain bg-secondary"
               />
               <div className="absolute left-3 top-3 flex items-center gap-2">
                 <span className="live-dot size-2.5 rounded-full bg-destructive" />

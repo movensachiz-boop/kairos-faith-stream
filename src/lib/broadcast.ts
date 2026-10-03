@@ -56,6 +56,17 @@ export function startHost(
   let activeSlot: 1 | CameraSlot = 1;
   let verseVisible = false;
   const verseStage = createVerseStage();
+  // One fixed 16:9 output for viewers and recordings, even if a phone supplies portrait video.
+  const recCanvas = document.createElement("canvas");
+  recCanvas.width = 1280;
+  recCanvas.height = 720;
+  const recCtx = recCanvas.getContext("2d");
+  const outputStream = recCanvas.captureStream(30);
+  const outputTrack = outputStream.getVideoTracks()[0] ?? null;
+  const recVideo = document.createElement("video");
+  recVideo.muted = true;
+  recVideo.playsInline = true;
+  let recTrack: MediaStreamTrack | null = null;
   const viewersChannel = viewerChannel(streamId);
   const camerasChannel = cameraChannel(streamId);
   const sendViewer = (payload: ViewerSignal) =>
@@ -71,7 +82,7 @@ export function startHost(
     viewers.get(id)?.close();
     const pc = new RTCPeerConnection(ICE);
     viewers.set(id, pc);
-    if (activeVideo) pc.addTrack(activeVideo, media);
+    if (outputTrack) pc.addTrack(outputTrack, outputStream);
     media.getAudioTracks().forEach((track) => pc.addTrack(track, media));
     pc.onicecandidate = (event) => {
       if (event.candidate) sendViewer({ type: "ice", to: id, candidate: event.candidate.toJSON() });
@@ -129,22 +140,12 @@ export function startHost(
     if (!nextTrack) return;
     activeVideo = verseVisible ? (verseStage.track ?? nextTrack) : nextTrack;
     activeSlot = slot;
-    await Promise.all(
-      [...viewers.values()].map(async (peer) => {
-        const sender = peer.getSenders().find((item) => item.track?.kind === "video");
-        if (sender) await sender.replaceTrack(activeVideo);
-      }),
-    );
   }
 
   async function showVerse(slide: VerseSlide | null) {
     if (slide) await verseStage.setSlide(slide);
     verseVisible = !!slide;
     activeVideo = verseVisible ? (verseStage.track ?? mainVideo) : ((activeSlot === 1 ? mainVideo : remoteCameras.get(activeSlot)?.getVideoTracks()[0]) ?? mainVideo);
-    await Promise.all([...viewers.values()].map(async (peer) => {
-      const sender = peer.getSenders().find((item) => item.track?.kind === "video");
-      if (sender) await sender.replaceTrack(activeVideo);
-    }));
     if (!slide) await verseStage.setSlide(null);
   }
 
@@ -179,15 +180,7 @@ export function startHost(
     })
     .subscribe();
 
-  // Recording: draw whatever viewers see onto a canvas and record it with the host audio.
-  const recCanvas = document.createElement("canvas");
-  recCanvas.width = 1280;
-  recCanvas.height = 720;
-  const recCtx = recCanvas.getContext("2d");
-  const recVideo = document.createElement("video");
-  recVideo.muted = true;
-  recVideo.playsInline = true;
-  let recTrack: MediaStreamTrack | null = null;
+  // Draw the current camera or scripture into the same landscape output viewers receive.
   const drawTimer = window.setInterval(() => {
     if (activeVideo !== recTrack) {
       recTrack = activeVideo;
@@ -206,7 +199,7 @@ export function startHost(
   const chunks: Blob[] = [];
   let recorder: MediaRecorder | null = null;
   try {
-    const recStream = new MediaStream([...recCanvas.captureStream(30).getVideoTracks(), ...media.getAudioTracks()]);
+    const recStream = new MediaStream([...outputStream.getVideoTracks(), ...media.getAudioTracks()]);
     const mimeType = ["video/mp4", "video/webm;codecs=vp9,opus", "video/webm"].find((t) => MediaRecorder.isTypeSupported(t));
     recorder = new MediaRecorder(recStream, mimeType ? { mimeType } : undefined);
     recorder.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
@@ -230,6 +223,8 @@ export function startHost(
 
   function stop() {
     verseStage.stop();
+    window.clearInterval(drawTimer);
+    outputStream.getTracks().forEach((track) => track.stop());
     void sendViewer({ type: "end" });
     void sendCamera({ type: "broadcast-end" });
     viewers.forEach((peer) => peer.close());
