@@ -79,7 +79,8 @@ export function LiveSpeechControls({ onCaption, onApprove, imageUrl }: {
     recognitionRef.current = recognition;
     recognition.continuous = true;
     recognition.interimResults = true;
-    recognition.lang = "en-US";
+    // No fixed language: use the device's language so every speaker is picked up.
+    recognition.lang = navigator.language || "en-US";
     recognition.onresult = (event) => {
       let interim = "";
       for (let i = event.resultIndex; i < event.results.length; i++) {
@@ -88,21 +89,22 @@ export function LiveSpeechControls({ onCaption, onApprove, imageUrl }: {
         const text = result[0].transcript.trim();
         if (result.isFinal) {
           onCaptionRef.current(text);
-          const recent = `${recentRef.current} ${text}`.trim();
           recentRef.current = text;
-          const reference = spokenReference(text) ?? spokenReference(recent);
-          if (reference && (reference !== lastRef.current || Date.now() - lastAtRef.current > 20000)) {
-            lastRef.current = reference;
-            lastAtRef.current = Date.now();
-            setStatus(`Looking up ${reference}…`);
-            void lookupSpokenVerse(reference).then((verse) => {
-              if (verse) { setCandidate(verse); setStatus(""); }
-              else setStatus(`Could not find ${reference}. Try the verse search below.`);
-            }).catch(() => setStatus("Scripture lookup is unavailable. Try the verse search below."));
-          }
         } else interim = text;
       }
       if (interim) onCaptionRef.current(interim);
+      // Check every heard phrase — final or still-being-spoken — for a reference.
+      const heard = `${recentRef.current} ${interim}`.trim();
+      const reference = spokenReference(interim) ?? spokenReference(heard);
+      if (reference && (reference !== lastRef.current || Date.now() - lastAtRef.current > 20000)) {
+        lastRef.current = reference;
+        lastAtRef.current = Date.now();
+        setStatus(`Looking up ${reference}…`);
+        void lookupSpokenVerse(reference).then((verse) => {
+          if (verse) { setCandidate(verse); setStatus(""); }
+          else setStatus(`Could not find ${reference}. Try the verse search below.`);
+        }).catch(() => setStatus("Scripture lookup is unavailable. Try the verse search below."));
+      }
     };
     recognition.onerror = ({ error }) => {
       if (error === "not-allowed" || error === "service-not-allowed") {
