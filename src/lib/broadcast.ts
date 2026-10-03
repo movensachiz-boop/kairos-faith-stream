@@ -39,7 +39,11 @@ export type HostController = {
   showVerse: (slide: VerseSlide | null) => Promise<void>;
   verseCanvas: HTMLCanvasElement;
   finishRecording: () => Promise<Blob | null>;
+  setLogo: (logo: HTMLImageElement | null, position: LogoPosition, size: number) => void;
+  setCaption: (text: string) => void;
 };
+
+export type LogoPosition = "top-left" | "top-right" | "bottom-left" | "bottom-right";
 
 export function startHost(
   streamId: string,
@@ -67,6 +71,10 @@ export function startHost(
   recVideo.muted = true;
   recVideo.playsInline = true;
   let recTrack: MediaStreamTrack | null = null;
+  let logoImage: HTMLImageElement | null = null;
+  let logoPosition: LogoPosition = "top-right";
+  let logoSize = 16;
+  let caption = "";
   const viewersChannel = viewerChannel(streamId);
   const camerasChannel = cameraChannel(streamId);
   const sendViewer = (payload: ViewerSignal) =>
@@ -195,6 +203,27 @@ export function startHost(
       const scale = Math.min(1280 / w, 720 / h);
       recCtx.drawImage(recVideo, (1280 - w * scale) / 2, (720 - h * scale) / 2, w * scale, h * scale);
     }
+    if (logoImage?.complete && logoImage.naturalWidth) {
+      const width = 1280 * Math.max(8, Math.min(30, logoSize)) / 100;
+      const height = width * logoImage.naturalHeight / logoImage.naturalWidth;
+      const gap = 30;
+      const x = logoPosition.endsWith("right") ? 1280 - width - gap : gap;
+      const y = logoPosition.startsWith("bottom") ? 720 - height - gap : gap;
+      recCtx.drawImage(logoImage, x, y, width, height);
+    }
+    if (caption.trim()) {
+      recCtx.font = '700 38px "Mont Verse Heavy", sans-serif';
+      const text = caption.trim().slice(0, 160);
+      const maxWidth = 1060;
+      const metrics = recCtx.measureText(text);
+      const width = Math.min(maxWidth, metrics.width + 56);
+      recCtx.fillStyle = "rgba(0, 0, 0, 0.82)";
+      recCtx.fillRect((1280 - width) / 2, 620, width, 66);
+      recCtx.fillStyle = "#fff";
+      recCtx.textAlign = "center";
+      recCtx.fillText(text, 640, 665, maxWidth - 30);
+      recCtx.textAlign = "start";
+    }
   }, 1000 / 30);
   const chunks: Blob[] = [];
   let recorder: MediaRecorder | null = null;
@@ -238,7 +267,15 @@ export function startHost(
     }, 300);
   }
 
-  return { stop, useCamera, showVerse, verseCanvas: verseStage.canvas, finishRecording };
+  function setLogo(logo: HTMLImageElement | null, position: LogoPosition, size: number) {
+    logoImage = logo;
+    logoPosition = position;
+    logoSize = size;
+  }
+
+  function setCaption(text: string) { caption = text; }
+
+  return { stop, useCamera, showVerse, verseCanvas: verseStage.canvas, finishRecording, setLogo, setCaption };
 }
 
 export function joinAsViewer(streamId: string, onStream: (stream: MediaStream) => void, onEnd: () => void) {

@@ -15,10 +15,11 @@
 - QR pairing for two extra phone cameras; Camera 1 remains the audio source
 - Full-screen scripture slides with three supplied photographic themes and Mont font; Camera 1 quick switch
 - Landscape 16:9 live output, preselected opening Scripture, optional landscape poster on listings, elapsed live timer
+- Church logo overlay with position and size controls; browser live captions and spoken Scripture approval
 
 ## Not built yet
 - Paynow payment processing (gifts are stored as pending records only)
-- Large-audience streaming, recording/replays, noise removal and captions
+- Large-audience streaming, cloud replays and server-quality transcription
 - Sermon transcription and AI summaries
 - AI Bible verse detection and related-Scripture suggestions
 - Full Bible import (only a starter verse set is loaded)

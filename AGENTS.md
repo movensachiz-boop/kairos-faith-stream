@@ -19,3 +19,4 @@
 - Live scripture slides are rendered to a canvas video track and substituted for the outgoing video track; the host audio track remains untouched so viewers receive the full slide without changing sound.
 - Live video uses a fixed landscape canvas track for viewers and local recordings, so portrait phone inputs fit inside a 16:9 frame without cropping.
 - Live posters are uploaded to a private bucket and served through a public read-only route after checking that a public live listing references the image; this keeps arbitrary files private.
+- Live logo and caption overlays are composited into the fixed landscape output canvas so viewers and local recordings receive the same presentation.
