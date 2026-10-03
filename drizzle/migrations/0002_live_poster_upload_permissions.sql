@@ -1,0 +1,2 @@
+CREATE POLICY "live poster owners upload images" ON storage.objects FOR INSERT TO authenticated WITH CHECK (bucket_id = 'live-posters' AND (storage.foldername(name))[1] = auth.uid()::text);
+CREATE POLICY "live poster owners read images" ON storage.objects FOR SELECT TO authenticated USING (bucket_id = 'live-posters' AND (storage.foldername(name))[1] = auth.uid()::text);

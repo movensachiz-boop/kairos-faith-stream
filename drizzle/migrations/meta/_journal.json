@@ -15,6 +15,13 @@
       "when": 1790533444003,
       "tag": "0001_link_authors_to_profiles",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791032223083,
+      "tag": "0002_live_poster_upload_permissions",
+      "breakpoints": true
     }
   ]
 }
