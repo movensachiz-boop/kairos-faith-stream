@@ -3,17 +3,18 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import QRCode from "qrcode";
-import { Camera, Check, ImagePlus, Link2, Maximize2, Minimize2, Radio, Smartphone } from "lucide-react";
+import { Camera, Check, ImagePlus, Link2, Maximize2, Minimize2, Radio, Smartphone, Upload } from "lucide-react";
 import { AppShell, SectionCard } from "@/components/layout/AppShell";
 import { Button } from "@/components/ui/button";
 import { ministriesQuery } from "@/lib/kairos";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { startHost, type CameraSlot, type CameraStatus, type HostController } from "@/lib/broadcast";
+import { startHost, type CameraSlot, type CameraStatus, type HostController, type LogoPosition } from "@/lib/broadcast";
 import { LiveComments } from "@/components/live/LiveComments";
 import { VersePanel } from "@/components/live/VersePanel";
 import type { VerseSlide } from "@/lib/verse-stage";
 import { elapsedLiveTime } from "@/lib/live-time";
+import { LiveSpeechControls } from "@/components/live/LiveSpeechControls";
 
 export const Route = createFileRoute("/_authenticated/create")({
   head: () => ({
@@ -66,6 +67,11 @@ function CreatePage() {
   const [showCameraGrid, setShowCameraGrid] = useState(false);
   const [verseOnScreen, setVerseOnScreen] = useState(false);
   const [recording, setRecording] = useState<{ url: string; name: string } | null>(null);
+  const [churchLogo, setChurchLogo] = useState<HTMLImageElement | null>(null);
+  const [churchLogoPreview, setChurchLogoPreview] = useState<string | null>(null);
+  const [logoPosition, setLogoPosition] = useState<LogoPosition>("top-right");
+  const [logoSize, setLogoSize] = useState(16);
+  const [liveCaption, setLiveCaption] = useState("");
   const cameraTokensRef = useRef<Record<CameraSlot, string>>({ 2: crypto.randomUUID(), 3: crypto.randomUUID() });
   const camera2Ref = useRef<HTMLVideoElement | null>(null);
   const camera3Ref = useRef<HTMLVideoElement | null>(null);
@@ -127,6 +133,9 @@ function CreatePage() {
   useEffect(() => {
     if (musicGainRef.current) musicGainRef.current.gain.value = musicVol / 100;
   }, [musicVol]);
+
+  useEffect(() => { hostRef.current?.setLogo(churchLogo, logoPosition, logoSize); }, [churchLogo, logoPosition, logoSize]);
+  useEffect(() => { hostRef.current?.setCaption(liveCaption); }, [liveCaption]);
 
   useEffect(() => {
     const onChange = () => setExpanded(Boolean(document.fullscreenElement));
@@ -302,6 +311,26 @@ function CreatePage() {
     }
   }
 
+  async function pickChurchLogo(file: File | undefined) {
+    if (!file) return;
+    if (!file.type.startsWith("image/") || file.size > 5 * 1024 * 1024) {
+      toast.error("Choose a logo image under 5 MB.");
+      return;
+    }
+    const url = URL.createObjectURL(file);
+    const image = new Image();
+    image.src = url;
+    try {
+      await image.decode();
+      if (churchLogoPreview) URL.revokeObjectURL(churchLogoPreview);
+      setChurchLogo(image);
+      setChurchLogoPreview(url);
+    } catch {
+      URL.revokeObjectURL(url);
+      toast.error("This logo could not be opened.");
+    }
+  }
+
   async function goLive() {
     if (!user) {
       toast.error("Sign in to go live.");
@@ -379,6 +408,8 @@ function CreatePage() {
         }
       },
     );
+    hostRef.current.setLogo(churchLogo, logoPosition, logoSize);
+    hostRef.current.setCaption(liveCaption);
     if (selectedVerse) {
       try { await hostRef.current.showVerse(selectedVerse); setVerseOnScreen(true); }
       catch { toast.error("The verse could not be shown. Camera 1 is still live."); }
@@ -513,6 +544,8 @@ function CreatePage() {
                     <span className="live-dot" /> LIVE · {elapsedLiveTime(startedAt, clock)} · {viewers} watching
                   </span>
                 ) : null}
+                {churchLogoPreview ? <img src={churchLogoPreview} alt="Church logo on video" className={`pointer-events-none absolute w-[var(--logo-width)] max-w-[30%] object-contain ${logoPosition === "top-left" ? "left-3 top-3" : logoPosition === "top-right" ? "right-3 top-3" : logoPosition === "bottom-left" ? "bottom-3 left-3" : "bottom-3 right-3"}`} style={{ "--logo-width": `${logoSize}%` } as React.CSSProperties} /> : null}
+                {liveCaption ? <p className="pointer-events-none absolute bottom-6 left-1/2 max-w-[84%] -translate-x-1/2 bg-foreground px-4 py-2 text-center font-verse-heavy text-sm text-background sm:text-lg">{liveCaption}</p> : null}
                 {!cameraOn ? (
                   <div className="absolute inset-0 flex items-center justify-center text-sm text-muted-foreground">
                     Camera is off
@@ -581,6 +614,25 @@ function CreatePage() {
               ) : null}
 
                 <VersePanel active={verseOnScreen} selected={Boolean(selectedVerse)} onShow={showVerse} onClear={clearVerse} />
+
+                <LiveSpeechControls onCaption={setLiveCaption} onApprove={showVerse} imageUrl={selectedVerse?.imageUrl} />
+
+                <section className="space-y-3 border-y border-border py-4" aria-label="Church logo on video">
+                  <div className="flex items-center justify-between gap-2">
+                    <h3 className="text-sm font-semibold">Church logo on video</h3>
+                    {churchLogo ? <Button type="button" variant="outline" size="sm" onClick={() => { setChurchLogo(null); setChurchLogoPreview(null); }} >Remove</Button> : null}
+                  </div>
+                  <label className="flex cursor-pointer items-center justify-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm font-semibold">
+                    <Upload className="size-4" /> {churchLogo ? "Change logo" : "Choose church logo"}
+                    <input type="file" accept="image/*" className="sr-only" onChange={(event) => void pickChurchLogo(event.target.files?.[0])} />
+                  </label>
+                  {churchLogo ? <>
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" aria-label="Logo position">
+                      {(["top-left", "top-right", "bottom-left", "bottom-right"] as const).map((position) => <Button key={position} type="button" size="sm" variant={logoPosition === position ? "default" : "outline"} onClick={() => setLogoPosition(position)}>{position.replace("-", " ")}</Button>)}
+                    </div>
+                    <label className="block text-xs text-muted-foreground">Logo size · {logoSize}%<input type="range" min={8} max={30} value={logoSize} onChange={(event) => setLogoSize(Number(event.target.value))} className="mt-1 w-full accent-primary" /></label>
+                  </> : <p className="text-xs text-muted-foreground">A transparent PNG works best. The logo appears for viewers and in the downloaded recording.</p>}
+                </section>
 
               {recording && !liveId ? (
                 <div className="glass-give space-y-2 rounded-md p-4">
@@ -811,12 +863,6 @@ function CreatePage() {
           )}
         </SectionCard>
 
-        <SectionCard title="Video recording" icon="🎥">
-          <p className="text-sm text-muted-foreground">
-            In-app video recording with background music, voice balancing, noise removal and automatic captions is
-            not built yet. For now you can publish written posts, sermons and testimonies.
-          </p>
-        </SectionCard>
       </div>
     </AppShell>
   );
