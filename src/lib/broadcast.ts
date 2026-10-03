@@ -111,7 +111,7 @@ export function startHost(
   async function addRemoteCamera(id: string, slot: CameraSlot, token: string) {
     if (tokens[slot] !== token) return;
     const previous = cameraPeers.get(slot);
-    if (previous?.id === id && previous.pc.connectionState !== "failed" && previous.pc.connectionState !== "closed") return;
+    if (previous?.id === id && !["failed", "closed", "disconnected"].includes(previous.pc.connectionState)) return;
     if (previous) {
       previous.pc.onconnectionstatechange = null;
       previous.pc.close();
@@ -123,10 +123,11 @@ export function startHost(
     cameraPeers.set(slot, { id, pc });
     pc.addTransceiver("video", { direction: "recvonly" });
     pc.ontrack = (event) => {
+      if (cameraPeers.get(slot)?.pc !== pc) return;
       const stream = event.streams[0] ?? new MediaStream([event.track]);
       remoteCameras.set(slot, stream);
       onCamera(slot, stream, "connected");
-      event.track.onended = () => disconnectCamera(slot);
+      event.track.onended = () => { if (cameraPeers.get(slot)?.pc === pc) disconnectCamera(slot); };
     };
     pc.onicecandidate = (event) => {
       if (event.candidate) {
@@ -359,7 +360,6 @@ export function joinAsRemoteCamera(
         if (joinTimer) clearInterval(joinTimer);
         onStatus("ended");
       } else if (message.type === "camera-offer" && message.to === me && message.slot === slot) {
-        if (joinTimer) clearInterval(joinTimer);
         pc?.close();
         pc = new RTCPeerConnection(ICE);
         const peer = pc;
@@ -375,6 +375,7 @@ export function joinAsRemoteCamera(
           if (closed || peer !== pc) return;
           if (peer.connectionState === "connected") {
             connected = true;
+            if (joinTimer) clearInterval(joinTimer);
             onStatus("connected");
           } else if (["failed", "closed", "disconnected"].includes(peer.connectionState)) {
             connected = false;
