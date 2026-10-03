@@ -180,13 +180,56 @@ function CreatePage() {
     mixedRef.current = new MediaStream([...stream.getVideoTracks(), ...dest.stream.getAudioTracks()]);
   }
 
+  function setMusicSrc(src: string, name: string) {
+    if (!musicElRef.current) musicElRef.current = new Audio();
+    const el = musicElRef.current;
+    el.crossOrigin = "anonymous";
+    el.src = src;
+    el.loop = true;
+    setMusicName(name);
+    setMusicPlaying(false);
+  }
+
   function pickMusic(file: File | undefined) {
     if (!file) return;
-    if (!musicElRef.current) musicElRef.current = new Audio();
-    musicElRef.current.src = URL.createObjectURL(file);
-    musicElRef.current.loop = true;
-    setMusicName(file.name);
-    setMusicPlaying(false);
+    setMusicSrc(URL.createObjectURL(file), file.name);
+  }
+
+  const [musicQuery, setMusicQuery] = useState("");
+  const [musicResults, setMusicResults] = useState<{ id: string; title: string; artist: string; art: string | null }[]>([]);
+  const [musicSearching, setMusicSearching] = useState(false);
+
+  async function searchMusic() {
+    const q = musicQuery.trim();
+    if (!q) return;
+    setMusicSearching(true);
+    try {
+      const res = await fetch(`https://api.audius.co/v1/tracks/search?query=${encodeURIComponent(q)}&app_name=KAIROS&limit=12`);
+      const json = (await res.json()) as { data?: any[] };
+      const list = (json.data ?? []).filter((t) => t.is_streamable !== false).map((t) => ({
+        id: String(t.id), title: String(t.title), artist: String(t.user?.name ?? ""),
+        art: (t.artwork?.["150x150"] as string | undefined) ?? null,
+      }));
+      setMusicResults(list);
+      if (!list.length) toast.error("No songs found.");
+    } catch {
+      toast.error("Music search failed. Try again.");
+    } finally {
+      setMusicSearching(false);
+    }
+  }
+
+  async function playTrack(t: { id: string; title: string; artist: string }) {
+    setMusicSrc(`https://api.audius.co/v1/tracks/${t.id}/stream?app_name=KAIROS`, `${t.title} — ${t.artist}`);
+    const el = musicElRef.current;
+    if (!el) return;
+    if (audioCtxRef.current) await audioCtxRef.current.resume();
+    try {
+      await el.play();
+      setMusicPlaying(true);
+    } catch {
+      toast.error("Couldn't play this song.");
+    }
   }
 
   async function toggleMusic() {
@@ -605,6 +648,40 @@ function CreatePage() {
 
               <div className="glass space-y-3 rounded-md p-4">
                 <h3 className="font-display text-sm font-semibold">🎵 Background music</h3>
+                <form
+                  className="flex gap-2"
+                  onSubmit={(e) => { e.preventDefault(); void searchMusic(); }}
+                >
+                  <input
+                    value={musicQuery}
+                    onChange={(e) => setMusicQuery(e.target.value)}
+                    placeholder="Search songs, e.g. worship piano"
+                    className="glass min-w-0 flex-1 rounded-lg px-3 py-2 text-sm outline-none"
+                  />
+                  <button type="submit" className="rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground">
+                    {musicSearching ? "Searching…" : "Search"}
+                  </button>
+                </form>
+                {musicResults.length > 0 && (
+                  <ul className="max-h-64 space-y-1 overflow-y-auto">
+                    {musicResults.map((t) => (
+                      <li key={t.id}>
+                        <button
+                          type="button"
+                          onClick={() => void playTrack(t)}
+                          className="glass flex w-full items-center gap-3 rounded-lg p-2 text-left"
+                        >
+                          {t.art ? <img src={t.art} alt="" className="size-10 rounded object-cover" /> : <span className="size-10 rounded bg-secondary" />}
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-sm font-semibold">{t.title}</span>
+                            <span className="block truncate text-xs text-muted-foreground">{t.artist}</span>
+                          </span>
+                          <span className="text-xs font-semibold text-primary">▶ Play</span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
                 <div className="flex flex-wrap items-center gap-2">
                   <label className="glass cursor-pointer rounded-lg px-3 py-2 text-xs font-semibold text-azure">
                     Choose song
