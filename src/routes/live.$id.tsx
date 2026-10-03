@@ -6,6 +6,7 @@ import { AppShell, SectionCard } from "@/components/layout/AppShell";
 import { supabase } from "@/integrations/supabase/client";
 import { joinAsViewer } from "@/lib/broadcast";
 import { LiveComments } from "@/components/live/LiveComments";
+import { LiveFaces } from "@/components/live/LiveFaces";
 import { elapsedLiveTime } from "@/lib/live-time";
 
 export const Route = createFileRoute("/live/$id")({
@@ -92,7 +93,8 @@ function WatchPage() {
 
   return (
     <AppShell>
-      <div className="mx-auto max-w-3xl space-y-5">
+      <div className="mx-auto grid max-w-6xl gap-5 lg:grid-cols-[1fr_280px]">
+      <div className="min-w-0 space-y-5">
         <div
           ref={shellRef}
           className={`relative aspect-video overflow-hidden ${expanded ? "flex h-full w-full items-center justify-center bg-ink" : "rounded-md glass"}`}
@@ -146,6 +148,10 @@ function WatchPage() {
         </SectionCard>
 
         <LiveComments streamId={id} />
+      </div>
+      <div className="lg:sticky lg:top-20 lg:self-start">
+        {!ended ? <LiveFaces streamId={id} /> : null}
+      </div>
       </div>
     </AppShell>
   );

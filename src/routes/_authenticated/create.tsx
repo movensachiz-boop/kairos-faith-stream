@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { startHost, type CameraSlot, type CameraStatus, type HostController, type LogoPosition } from "@/lib/broadcast";
 import { LiveComments } from "@/components/live/LiveComments";
+import { LiveFaces } from "@/components/live/LiveFaces";
 import { VersePanel } from "@/components/live/VersePanel";
 import type { VerseSlide } from "@/lib/verse-stage";
 import { elapsedLiveTime } from "@/lib/live-time";
@@ -56,6 +57,7 @@ function CreatePage() {
   const [cameraOn, setCameraOn] = useState(false);
   const [liveId, setLiveId] = useState<string | null>(null);
   const [liveTitle, setLiveTitle] = useState("");
+  const [allowFaces, setAllowFaces] = useState(true);
   const [poster, setPoster] = useState<File | null>(null);
   const [posterPreview, setPosterPreview] = useState<string | null>(null);
   const [selectedVerse, setSelectedVerse] = useState<VerseSlide | null>(null);
@@ -665,6 +667,11 @@ function CreatePage() {
                 className="glass w-full rounded-xl px-4 py-3 text-sm outline-none placeholder:text-muted-foreground"
               />
 
+              <label className="flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm">
+                <input type="checkbox" checked={allowFaces} onChange={(e) => setAllowFaces(e.target.checked)} className="size-4 accent-[var(--primary)]" />
+                Let viewers show their faces in a side panel everyone can see
+              </label>
+
               {!liveId ? <div className="space-y-2">
                 <label className="text-sm font-semibold" htmlFor="live-poster">Landscape live poster (optional)</label>
                 <label htmlFor="live-poster" className="flex cursor-pointer items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm"><ImagePlus className="size-4" /> {poster ? poster.name : "Choose poster"}</label>
@@ -796,6 +803,7 @@ function CreatePage() {
                 </p>
               </div>
 
+              {liveId ? <LiveFaces streamId={liveId} isHost allowed={allowFaces} /> : null}
               {liveId ? <LiveComments streamId={liveId} /> : null}
 
               <p className="text-xs text-muted-foreground">
