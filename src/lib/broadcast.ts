@@ -23,6 +23,7 @@ type CameraSignal =
   | { type: "camera-answer"; from: string; slot: CameraSlot; sdp: RTCSessionDescriptionInit }
   | { type: "camera-ice"; to?: string; from?: string; slot: CameraSlot; candidate: RTCIceCandidateInit }
   | { type: "camera-leave"; from: string; slot: CameraSlot }
+  | { type: "camera-frame"; from: string; slot: CameraSlot; token: string; data: string }
   | { type: "broadcast-end" };
 
 function viewerChannel(streamId: string) {
@@ -72,6 +73,45 @@ export function startHost(
   const cameraPeers = new Map<CameraSlot, { id: string; pc: RTCPeerConnection; started: number }>();
   const cameraIce = new Map<CameraSlot, RTCIceCandidateInit[]>();
   const remoteCameras = new Map<CameraSlot, MediaStream>();
+  // Fallback when a direct phone connection can't be made: JPEG frames relayed over realtime.
+  const relays = new Map<CameraSlot, { from: string; canvas: HTMLCanvasElement; stream: MediaStream; busy: boolean }>();
+  function handleFrame(message: { from: string; slot: CameraSlot; token: string; data: string }) {
+    if (tokens[message.slot] !== message.token) return;
+    let relay = relays.get(message.slot);
+    if (!relay || relay.from !== message.from) {
+      relay?.stream.getTracks().forEach((t) => t.stop());
+      const canvas = document.createElement("canvas");
+      canvas.width = 640;
+      canvas.height = 360;
+      relay = { from: message.from, canvas, stream: canvas.captureStream(15), busy: false };
+      relays.set(message.slot, relay);
+    }
+    const current = relay;
+    const peer = cameraPeers.get(message.slot)?.pc;
+    if (!peer || peer.connectionState !== "connected") {
+      if (remoteCameras.get(message.slot) !== current.stream) {
+        remoteCameras.set(message.slot, current.stream);
+        onCamera(message.slot, current.stream, "connected");
+        if (activeSlot === message.slot) void useCamera(message.slot);
+      }
+    }
+    if (current.busy) return;
+    current.busy = true;
+    const img = new Image();
+    img.onload = () => {
+      const ctx = current.canvas.getContext("2d");
+      if (ctx) {
+        if (current.canvas.width !== img.width || current.canvas.height !== img.height) {
+          current.canvas.width = img.width;
+          current.canvas.height = img.height;
+        }
+        ctx.drawImage(img, 0, 0);
+      }
+      current.busy = false;
+    };
+    img.onerror = () => { current.busy = false; };
+    img.src = message.data;
+  }
   const mainVideo = media.getVideoTracks()[0] ?? null;
   let activeVideo = mainVideo;
   let activeSlot: 1 | CameraSlot = 1;
@@ -147,7 +187,7 @@ export function startHost(
       event.track.onunmute = () => {
         if (cameraPeers.get(slot)?.pc === pc && pc.connectionState === "connected") onCamera(slot, stream, "connected");
       };
-      event.track.onended = () => { if (cameraPeers.get(slot)?.pc === pc) disconnectCamera(slot); };
+      event.track.onended = () => { if (cameraPeers.get(slot)?.pc === pc && !relays.has(slot)) disconnectCamera(slot); };
     };
     pc.onicecandidate = (event) => {
       if (event.candidate) {
@@ -158,7 +198,7 @@ export function startHost(
       if (cameraPeers.get(slot)?.pc === pc && pc.connectionState === "connected") {
         onCamera(slot, remoteCameras.get(slot) ?? null, "connected");
       }
-      if (cameraPeers.get(slot)?.pc === pc && ["failed", "closed", "disconnected"].includes(pc.connectionState)) disconnectCamera(slot);
+      if (cameraPeers.get(slot)?.pc === pc && ["failed", "closed", "disconnected"].includes(pc.connectionState) && !relays.has(slot)) disconnectCamera(slot);
     };
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
@@ -172,6 +212,8 @@ export function startHost(
     entry?.pc.close();
     cameraPeers.delete(slot);
     remoteCameras.delete(slot);
+    relays.get(slot)?.stream.getTracks().forEach((t) => t.stop());
+    relays.delete(slot);
     cameraIce.delete(slot);
     onCamera(slot, null, "disconnected");
     if (activeSlot === slot) void useCamera(1);
@@ -207,7 +249,10 @@ export function startHost(
   camerasChannel
     .on("broadcast", { event: "camera-signal" }, async ({ payload }) => {
       const message = payload as CameraSignal;
-      if (message.type === "camera-join") {
+      if (message.type === "camera-frame") {
+        handleFrame(message);
+      } else if (message.type === "camera-join") {
+        if (relays.get(message.slot)?.from === message.from) return;
         await addRemoteCamera(message.from, message.slot, message.token);
       } else if (message.type === "camera-answer") {
         const camera = cameraPeers.get(message.slot);
@@ -224,7 +269,10 @@ export function startHost(
         }
       } else if (message.type === "camera-leave") {
         const camera = cameraPeers.get(message.slot);
-        if (camera?.id === message.from) disconnectCamera(message.slot);
+        if (camera?.id === message.from || relays.get(message.slot)?.from === message.from) {
+          if (!camera) cameraPeers.set(message.slot, { id: message.from, pc: new RTCPeerConnection(), started: 0 });
+          disconnectCamera(message.slot);
+        }
       }
     })
     .subscribe();
@@ -302,6 +350,8 @@ export function startHost(
     viewers.clear();
     cameraPeers.clear();
     remoteCameras.clear();
+    relays.forEach((r) => r.stream.getTracks().forEach((t) => t.stop()));
+    relays.clear();
     window.setTimeout(() => {
       void supabase.removeChannel(viewersChannel);
       void supabase.removeChannel(camerasChannel);
@@ -372,7 +422,30 @@ export function joinAsRemoteCamera(
   let joinTimer: ReturnType<typeof setInterval> | null = null;
   let connectionTimer: ReturnType<typeof setTimeout> | null = null;
   const pendingIce: RTCIceCandidateInit[] = [];
+  let relayTimer: ReturnType<typeof setInterval> | null = null;
+  let relayFallback: ReturnType<typeof setTimeout> | null = null;
   const channel = cameraChannel(streamId);
+  function startRelay() {
+    if (closed || connected || relayTimer) return;
+    if (joinTimer) clearInterval(joinTimer);
+    if (connectionTimer) clearTimeout(connectionTimer);
+    const video = document.createElement("video");
+    video.muted = true;
+    video.playsInline = true;
+    video.srcObject = media;
+    void video.play().catch(() => {});
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    relayTimer = setInterval(() => {
+      if (!ctx || !video.videoWidth) return;
+      const scale = Math.min(1, 640 / Math.max(video.videoWidth, video.videoHeight));
+      canvas.width = Math.round(video.videoWidth * scale);
+      canvas.height = Math.round(video.videoHeight * scale);
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      void send({ type: "camera-frame", from: me, slot, token, data: canvas.toDataURL("image/jpeg", 0.55) });
+    }, 150);
+    onStatus("connected");
+  }
   const send = (payload: CameraSignal) => channel.send({ type: "broadcast", event: "camera-signal", payload });
   const requestJoin = () => {
     if (!closed && !connected) void send({ type: "camera-join", from: me, slot, token });
@@ -401,13 +474,14 @@ export function joinAsRemoteCamera(
           if (closed || peer !== pc) return;
           if (peer.connectionState === "connected") {
             connected = true;
+            if (relayTimer) { clearInterval(relayTimer); relayTimer = null; }
             if (joinTimer) clearInterval(joinTimer);
             if (connectionTimer) clearTimeout(connectionTimer);
             onStatus("connected");
           } else if (["failed", "closed", "disconnected"].includes(peer.connectionState)) {
             connected = false;
             onStatus("disconnected");
-            if (peer.connectionState === "failed") requestJoin();
+            if (peer.connectionState === "failed") startRelay();
           }
         };
         await peer.setRemoteDescription(message.sdp);
@@ -417,9 +491,11 @@ export function joinAsRemoteCamera(
         const sdp = await gatheredDescription(peer);
         if (closed || peer !== pc) return;
         await send({ type: "camera-answer", from: me, slot, sdp });
+        if (relayFallback) clearTimeout(relayFallback);
+        relayFallback = setTimeout(() => { if (!connected) startRelay(); }, 8000);
         if (connectionTimer) clearTimeout(connectionTimer);
         connectionTimer = setTimeout(() => {
-          if (closed || peer !== pc || connected) return;
+          if (closed || peer !== pc || connected || relayTimer) return;
           peer.close();
           onStatus("connecting");
           requestJoin();
@@ -439,6 +515,8 @@ export function joinAsRemoteCamera(
 
   return () => {
     closed = true;
+    if (relayTimer) clearInterval(relayTimer);
+    if (relayFallback) clearTimeout(relayFallback);
     if (joinTimer) clearInterval(joinTimer);
     if (connectionTimer) clearTimeout(connectionTimer);
     void send({ type: "camera-leave", from: me, slot });
