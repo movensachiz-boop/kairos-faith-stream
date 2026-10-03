@@ -545,7 +545,7 @@ function CreatePage() {
                   </span>
                 ) : null}
                 {churchLogoPreview ? <img src={churchLogoPreview} alt="Church logo on video" className={`pointer-events-none absolute w-[var(--logo-width)] max-w-[30%] object-contain ${logoPosition === "top-left" ? "left-3 top-3" : logoPosition === "top-right" ? "right-3 top-3" : logoPosition === "bottom-left" ? "bottom-3 left-3" : "bottom-3 right-3"}`} style={{ "--logo-width": `${logoSize}%` } as React.CSSProperties} /> : null}
-                {liveCaption ? <p className="pointer-events-none absolute bottom-6 left-1/2 max-w-[84%] -translate-x-1/2 bg-foreground px-4 py-2 text-center font-verse-heavy text-sm text-background sm:text-lg">{liveCaption}</p> : null}
+                 {liveCaption && !verseOnScreen ? <p className="pointer-events-none absolute bottom-6 left-1/2 max-w-[84%] -translate-x-1/2 bg-foreground px-4 py-2 text-center font-verse-heavy text-sm text-background sm:text-lg">{liveCaption}</p> : null}
                 {!cameraOn ? (
                   <div className="absolute inset-0 flex items-center justify-center text-sm text-muted-foreground">
                     Camera is off
