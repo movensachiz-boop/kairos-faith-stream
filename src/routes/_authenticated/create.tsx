@@ -177,7 +177,7 @@ function CreatePage() {
       void audioCtxRef.current.close().catch(() => {});
       musicSourceRef.current = null;
     }
-    const ctx = new AudioContext();
+    const ctx = new AudioContext({ latencyHint: "playback", sampleRate: 48000 });
     const dest = ctx.createMediaStreamDestination();
     const voiceGain = ctx.createGain();
     voiceGain.gain.value = voiceVol / 100;
@@ -278,7 +278,7 @@ function CreatePage() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { width: { ideal: 1280 }, height: { ideal: 720 }, aspectRatio: { ideal: 16 / 9 } },
-        audio: { echoCancellation: true, noiseSuppression: true },
+        audio: { echoCancellation: true, noiseSuppression: false, autoGainControl: false, channelCount: 1, sampleRate: 48000 },
       });
       streamRef.current = stream;
       buildMix(stream);

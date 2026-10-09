@@ -124,10 +124,21 @@ export function startHost(
   const recCtx = recCanvas.getContext("2d");
   const outputStream = recCanvas.captureStream(30);
   const outputTrack = outputStream.getVideoTracks()[0] ?? null;
-  const recVideo = document.createElement("video");
-  recVideo.muted = true;
-  recVideo.playsInline = true;
-  let recTrack: MediaStreamTrack | null = null;
+  // One playing video element per source, so switching shots never waits on a reload (no blank frames).
+  const sourceVideos = new Map<MediaStreamTrack, HTMLVideoElement>();
+  function videoFor(track: MediaStreamTrack) {
+    let el = sourceVideos.get(track);
+    if (!el) {
+      el = document.createElement("video");
+      el.muted = true;
+      el.playsInline = true;
+      el.srcObject = new MediaStream([track]);
+      void el.play().catch(() => {});
+      sourceVideos.set(track, el);
+    }
+    return el;
+  }
+  let lastSource: CanvasImageSource | null = null;
   let logoImage: HTMLImageElement | null = null;
   let logoPosition: LogoPosition = "top-right";
   let logoSize = 16;
@@ -148,7 +159,13 @@ export function startHost(
     const pc = new RTCPeerConnection(ICE);
     viewers.set(id, pc);
     if (outputTrack) pc.addTrack(outputTrack, outputStream);
-    media.getAudioTracks().forEach((track) => pc.addTrack(track, media));
+    media.getAudioTracks().forEach((track) => {
+      const sender = pc.addTrack(track, media);
+      // Steady, higher-quality voice so it doesn't break up.
+      const params = sender.getParameters();
+      params.encodings = [{ ...(params.encodings?.[0] ?? {}), maxBitrate: 128000, priority: "high", networkPriority: "high" }];
+      void sender.setParameters(params).catch(() => {});
+    });
     pc.onicecandidate = (event) => {
       if (event.candidate) sendViewer({ type: "ice", to: id, candidate: event.candidate.toJSON() });
     };
@@ -160,6 +177,7 @@ export function startHost(
       updateViewerCount();
     };
     const offer = await pc.createOffer();
+    if (offer.sdp) offer.sdp = offer.sdp.replace(/a=fmtp:111 ([^\r\n]*)/, (_m, p: string) => `a=fmtp:111 ${p};stereo=0;maxaveragebitrate=128000;usedtx=0;useinbandfec=1`);
     await pc.setLocalDescription(offer);
     await sendViewer({ type: "offer", to: id, sdp: offer });
   }
@@ -279,18 +297,25 @@ export function startHost(
 
   // Draw the current camera or scripture into the same landscape output viewers receive.
   const drawTimer = window.setInterval(() => {
-    if (activeVideo !== recTrack) {
-      recTrack = activeVideo;
-      recVideo.srcObject = activeVideo ? new MediaStream([activeVideo]) : null;
-      void recVideo.play().catch(() => {});
-    }
     if (!recCtx) return;
+    // Keep every camera element warm so it is ready the instant it is chosen.
+    for (const t of [mainVideo, ...[...remoteCameras.values()].map((s) => s.getVideoTracks()[0])]) if (t) videoFor(t);
+    let source: CanvasImageSource | null = null;
+    let w = 0, h = 0;
+    if (verseVisible) {
+      source = verseStage.canvas; w = 1280; h = 720;
+    } else if (activeVideo) {
+      const el = videoFor(activeVideo);
+      if (el.videoWidth && el.videoHeight) { source = el; w = el.videoWidth; h = el.videoHeight; }
+    }
+    if (!source) {
+      if (lastSource) return; // hold the previous picture rather than flashing black
+    } else lastSource = source;
     recCtx.fillStyle = "#000";
     recCtx.fillRect(0, 0, 1280, 720);
-    const w = recVideo.videoWidth, h = recVideo.videoHeight;
-    if (w && h) {
+    if (source && w && h) {
       const scale = Math.min(1280 / w, 720 / h);
-      recCtx.drawImage(recVideo, (1280 - w * scale) / 2, (720 - h * scale) / 2, w * scale, h * scale);
+      recCtx.drawImage(source, (1280 - w * scale) / 2, (720 - h * scale) / 2, w * scale, h * scale);
     }
     if (logoImage?.complete && logoImage.naturalWidth) {
       const width = 1280 * Math.max(8, Math.min(30, logoSize)) / 100;
@@ -342,6 +367,8 @@ export function startHost(
   function stop() {
     verseStage.stop();
     window.clearInterval(drawTimer);
+    sourceVideos.forEach((el) => { el.srcObject = null; });
+    sourceVideos.clear();
     outputStream.getTracks().forEach((track) => track.stop());
     void sendViewer({ type: "end" });
     void sendCamera({ type: "broadcast-end" });
