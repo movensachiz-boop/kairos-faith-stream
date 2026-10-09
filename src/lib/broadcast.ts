@@ -163,7 +163,7 @@ export function startHost(
       const sender = pc.addTrack(track, media);
       // Steady, higher-quality voice so it doesn't break up.
       const params = sender.getParameters();
-      params.encodings = [{ ...(params.encodings?.[0] ?? {}), maxBitrate: 128000, priority: "high", networkPriority: "high" }];
+      params.encodings = [{ ...(params.encodings?.[0] ?? {}), maxBitrate: 160000, priority: "high", networkPriority: "high" }];
       void sender.setParameters(params).catch(() => {});
     });
     pc.onicecandidate = (event) => {
@@ -177,7 +177,7 @@ export function startHost(
       updateViewerCount();
     };
     const offer = await pc.createOffer();
-    if (offer.sdp) offer.sdp = offer.sdp.replace(/a=fmtp:111 ([^\r\n]*)/, (_m, p: string) => `a=fmtp:111 ${p};stereo=0;maxaveragebitrate=128000;usedtx=0;useinbandfec=1`);
+    if (offer.sdp) offer.sdp = offer.sdp.replace(/a=fmtp:111 ([^\r\n]*)/, (_m, p: string) => `a=fmtp:111 ${p};stereo=1;sprop-stereo=1;maxaveragebitrate=160000;maxplaybackrate=48000;usedtx=0;useinbandfec=1;cbr=1`);
     await pc.setLocalDescription(offer);
     await sendViewer({ type: "offer", to: id, sdp: offer });
   }

@@ -187,7 +187,11 @@ function CreatePage() {
     const musicGain = ctx.createGain();
     musicGain.gain.value = musicVol / 100;
     musicGain.connect(dest);
-    musicGain.connect(ctx.destination); // so you can hear the music too
+    // Quieter local monitor so the microphone doesn't re-capture the speakers and chop the music.
+    const monitor = ctx.createGain();
+    monitor.gain.value = 0.35;
+    musicGain.connect(monitor);
+    monitor.connect(ctx.destination);
 
     const el = musicElRef.current ?? new Audio();
     el.loop = true;
@@ -199,6 +203,7 @@ function CreatePage() {
     audioCtxRef.current = ctx;
     voiceGainRef.current = voiceGain;
     musicGainRef.current = musicGain;
+    dest.stream.getAudioTracks().forEach((t) => { t.contentHint = "music"; });
     mixedRef.current = new MediaStream([...stream.getVideoTracks(), ...dest.stream.getAudioTracks()]);
   }
 
