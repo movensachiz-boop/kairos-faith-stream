@@ -29,6 +29,8 @@ export function LiveSpeechControls({ onCaption, onApprove, imageUrl }: {
   const lastRef = useRef("");
   const lastAtRef = useRef(0);
   const recentRef = useRef("");
+  const pendingTimer = useRef<number | null>(null);
+  const verseCache = useRef(new Map<string, { text: string; reference: string }>());
   const toggleButtonRef = useRef<HTMLButtonElement | null>(null);
   const approveButtonRef = useRef<HTMLButtonElement | null>(null);
   const onCaptionRef = useRef(onCaption);
