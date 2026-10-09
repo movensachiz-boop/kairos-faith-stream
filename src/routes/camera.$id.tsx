@@ -84,7 +84,6 @@ function RemoteCameraPage() {
         canvas.height = 720;
         const ctx = canvas.getContext("2d");
         if (ctx) {
-          rotateCleanupRef.current?.();
           const draw = () => {
             // Rotate the portrait frame 90° so it fills the landscape canvas.
             ctx.save();
