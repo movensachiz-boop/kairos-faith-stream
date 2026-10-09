@@ -499,6 +499,8 @@ function CreatePage() {
     if (hostRef.current) {
       await hostRef.current.showVerse(slide);
       setVerseOnScreen(true);
+    } else {
+      toast.info("Start the live first — then tap a result and it shows straight away.");
     }
   }
 
