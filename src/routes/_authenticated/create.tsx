@@ -16,6 +16,7 @@ import { VersePanel } from "@/components/live/VersePanel";
 import type { VerseSlide } from "@/lib/verse-stage";
 import { elapsedLiveTime } from "@/lib/live-time";
 import { LiveSpeechControls } from "@/components/live/LiveSpeechControls";
+import { LiveLookupPanel } from "@/components/live/LiveLookupPanel";
 
 export const Route = createFileRoute("/_authenticated/create")({
   head: () => ({
@@ -652,6 +653,7 @@ function CreatePage() {
                 <VersePanel active={verseOnScreen} selected={Boolean(selectedVerse)} onShow={showVerse} onClear={clearVerse} />
 
                 <LiveSpeechControls onCaption={setLiveCaption} onApprove={showVerse} imageUrl={selectedVerse?.imageUrl} />
+                <LiveLookupPanel onShow={showVerse} />
 
                 <section className="space-y-3 border-y border-border py-4" aria-label="Church logo on video">
                   <div className="flex items-center justify-between gap-2">
