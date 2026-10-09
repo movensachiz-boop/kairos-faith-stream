@@ -100,11 +100,22 @@ export function LiveSpeechControls({ onCaption, onApprove, imageUrl }: {
       if (reference && (reference !== lastRef.current || Date.now() - lastAtRef.current > 20000)) {
         lastRef.current = reference;
         lastAtRef.current = Date.now();
-        setStatus(`Looking up ${reference}…`);
-        void lookupSpokenVerse(reference).then((verse) => {
-          if (verse) { setCandidate(verse); setStatus(""); }
-          else setStatus(`Could not find ${reference}. Try the verse search below.`);
-        }).catch(() => setStatus("Scripture lookup is unavailable. Try the verse search below."));
+        // Wait until the speaker pauses so half-said numbers ("John 3:1…") don't flood the lookup service.
+        if (pendingTimer.current) window.clearTimeout(pendingTimer.current);
+        pendingTimer.current = window.setTimeout(() => {
+          const wanted = reference;
+          setStatus(`Looking up ${wanted}…`);
+          const cached = verseCache.current.get(wanted);
+          const lookup = cached ? Promise.resolve(cached) : lookupSpokenVerse(wanted);
+          void lookup.then((verse) => {
+            if (lastRef.current !== wanted) return;
+            if (verse) {
+              verseCache.current.set(wanted, verse);
+              if (document.fullscreenElement) void document.exitFullscreen().catch(() => undefined);
+              setCandidate(verse); setStatus("");
+            } else { lastRef.current = ""; setStatus(`Could not find ${wanted}. Try the verse search below.`); }
+          }).catch(() => { lastRef.current = ""; setStatus("Scripture lookup is busy. Say the verse again in a moment."); });
+        }, 700);
       }
     };
     recognition.onerror = ({ error }) => {
