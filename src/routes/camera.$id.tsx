@@ -32,12 +32,15 @@ function RemoteCameraPage() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const leaveRef = useRef<(() => void) | null>(null);
+  const rotateCleanupRef = useRef<(() => void) | null>(null);
   const [status, setStatus] = useState<CameraStatus | "ready" | "ended">("ready");
   const [error, setError] = useState("");
 
   useEffect(
     () => () => {
       leaveRef.current?.();
+      rotateCleanupRef.current?.();
+      rotateCleanupRef.current = null;
       streamRef.current?.getTracks().forEach((track) => track.stop());
     },
     [],
@@ -52,19 +55,58 @@ function RemoteCameraPage() {
       setError("");
       leaveRef.current?.();
       leaveRef.current = null;
+      rotateCleanupRef.current?.();
+      rotateCleanupRef.current = null;
       streamRef.current?.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
       setStatus("connecting");
       const media = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } },
+        video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 }, aspectRatio: { ideal: 16 / 9 } },
         audio: false,
       });
       streamRef.current = media;
+      // Phones held upright deliver a portrait picture even when landscape is
+      // requested. Rotate it into a fixed 1280x720 landscape stream so the
+      // main broadcast always receives a wide picture.
+      const track = media.getVideoTracks()[0];
+      const settings = track?.getSettings() ?? {};
+      let outgoing = media;
+      if ((settings.height ?? 0) > (settings.width ?? 0)) {
+        const probe = document.createElement("video");
+        probe.muted = true;
+        probe.playsInline = true;
+        probe.srcObject = media;
+        await probe.play().catch(() => {});
+        const srcW = probe.videoWidth || settings.width || 720;
+        const srcH = probe.videoHeight || settings.height || 1280;
+        const canvas = document.createElement("canvas");
+        canvas.width = 1280;
+        canvas.height = 720;
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          const draw = () => {
+            // Rotate the portrait frame 90° so it fills the landscape canvas.
+            ctx.save();
+            ctx.translate(1280 / 2, 720 / 2);
+            ctx.rotate(Math.PI / 2);
+            const scale = Math.max(720 / srcW, 1280 / srcH);
+            ctx.drawImage(probe, (-srcW * scale) / 2, (-srcH * scale) / 2, srcW * scale, srcH * scale);
+            ctx.restore();
+          };
+          const timer = window.setInterval(draw, 1000 / 30);
+          draw();
+          rotateCleanupRef.current = () => {
+            window.clearInterval(timer);
+            probe.srcObject = null;
+          };
+          outgoing = canvas.captureStream(30);
+        }
+      }
       if (videoRef.current) {
-        videoRef.current.srcObject = media;
+        videoRef.current.srcObject = outgoing;
         void videoRef.current.play().catch(() => {});
       }
-      leaveRef.current = joinAsRemoteCamera(id, slot, token, media, setStatus);
+      leaveRef.current = joinAsRemoteCamera(id, slot, token, outgoing, setStatus);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Camera access was not allowed.");
       setStatus("disconnected");
@@ -74,6 +116,8 @@ function RemoteCameraPage() {
   function disconnect() {
     leaveRef.current?.();
     leaveRef.current = null;
+    rotateCleanupRef.current?.();
+    rotateCleanupRef.current = null;
     streamRef.current?.getTracks().forEach((track) => track.stop());
     streamRef.current = null;
     setStatus("disconnected");
