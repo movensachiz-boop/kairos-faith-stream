@@ -80,7 +80,7 @@ export function LiveLookupPanel({ onShow }: { onShow: (slide: VerseSlide) => Pro
     {pics.length > 0 && <div>
       <p className="mb-2 flex items-center gap-1 text-xs font-semibold"><ImageIcon className="size-3" /> Pictures</p>
       <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
-        {pics.map((p, i) => <button key={i} type="button" onClick={() => void onShow({ text: "", reference: p.title, imageUrl: p.url, picture: true })} className="aspect-video overflow-hidden rounded-md border border-border hover:border-primary" aria-label={`Show picture ${p.title}`}>
+        {pics.map((p, i) => <button key={i} type="button" onClick={() => void onShow({ text: "", reference: p.title, imageUrl: `/api/public/lookup-image?u=${encodeURIComponent(p.url)}`, picture: true })} className="aspect-video overflow-hidden rounded-md border border-border hover:border-primary" aria-label={`Show picture ${p.title}`}>
           <img src={p.thumb} alt={p.title} loading="lazy" className="size-full object-cover" />
         </button>)}
       </div>
