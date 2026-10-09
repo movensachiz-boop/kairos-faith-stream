@@ -10,7 +10,7 @@
   events, Bible search + bookmarks, giving records, profile, notifications
 
 ## Live broadcasting
-- [ ] Move Bible/backgrounds, search, music and setup next to video with persistent live actions; verify layout and tool switching.
+- [x] Bible/backgrounds, search, music and setup beside video with persistent live actions; computer/phone layout and preserved tool selections verified.
 - Small-audience WebRTC broadcast and playback
 - Live comments and background music with voice/music volume controls
 - QR pairing for two extra phone cameras; Camera 1 remains the audio source
