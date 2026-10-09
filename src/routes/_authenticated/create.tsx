@@ -247,7 +247,21 @@ function CreatePage() {
   }
 
   async function playTrack(t: { id: string; title: string; artist: string }) {
-    setMusicSrc(`https://api.audius.co/v1/tracks/${t.id}/stream?app_name=KAIROS`, `${t.title} — ${t.artist}`);
+    // Download the whole song first so it plays smoothly instead of stopping to buffer mid-live.
+    const loading = toast.loading("Loading song…");
+    let src = `https://api.audius.co/v1/tracks/${t.id}/stream?app_name=KAIROS`;
+    try {
+      const res = await fetch(src);
+      if (!res.ok) throw new Error("download failed");
+      src = URL.createObjectURL(await res.blob());
+    } catch {
+      // Fall back to streaming if the full download isn't possible.
+    } finally {
+      toast.dismiss(loading);
+    }
+    const old = musicElRef.current?.src;
+    if (old?.startsWith("blob:")) URL.revokeObjectURL(old);
+    setMusicSrc(src, `${t.title} — ${t.artist}`);
     const el = musicElRef.current;
     if (!el) return;
     if (audioCtxRef.current) await audioCtxRef.current.resume();
