@@ -32,12 +32,15 @@ function RemoteCameraPage() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const leaveRef = useRef<(() => void) | null>(null);
+  const rotateCleanupRef = useRef<(() => void) | null>(null);
   const [status, setStatus] = useState<CameraStatus | "ready" | "ended">("ready");
   const [error, setError] = useState("");
 
   useEffect(
     () => () => {
       leaveRef.current?.();
+      rotateCleanupRef.current?.();
+      rotateCleanupRef.current = null;
       streamRef.current?.getTracks().forEach((track) => track.stop());
     },
     [],
@@ -52,6 +55,8 @@ function RemoteCameraPage() {
       setError("");
       leaveRef.current?.();
       leaveRef.current = null;
+      rotateCleanupRef.current?.();
+      rotateCleanupRef.current = null;
       streamRef.current?.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
       setStatus("connecting");
@@ -112,6 +117,8 @@ function RemoteCameraPage() {
   function disconnect() {
     leaveRef.current?.();
     leaveRef.current = null;
+    rotateCleanupRef.current?.();
+    rotateCleanupRef.current = null;
     streamRef.current?.getTracks().forEach((track) => track.stop());
     streamRef.current = null;
     setStatus("disconnected");
