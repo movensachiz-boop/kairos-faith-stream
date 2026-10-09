@@ -1,4 +1,4 @@
-export type VerseSlide = { text: string; reference: string; imageUrl: string };
+export type VerseSlide = { text: string; reference: string; imageUrl: string; picture?: boolean };
 
 // The slide is a video track so viewers see the same full-screen image as the host.
 export function createVerseStage() {
@@ -34,6 +34,26 @@ export function createVerseStage() {
     if (!context || !slide) return;
     const { width, height } = canvas;
     context.clearRect(0, 0, width, height);
+    if (slide.picture) {
+      // Picture slides: whole image fitted on black, label along the bottom.
+      context.fillStyle = "#000";
+      context.fillRect(0, 0, width, height);
+      if (image?.complete && image.naturalWidth) {
+        const scale = Math.min(width / image.naturalWidth, height / image.naturalHeight);
+        const w = image.naturalWidth * scale, h = image.naturalHeight * scale;
+        context.drawImage(image, (width - w) / 2, (height - h) / 2, w, h);
+      }
+      if (slide.reference.trim()) {
+        context.fillStyle = "rgba(0, 0, 0, 0.6)";
+        context.fillRect(0, height - 80, width, 80);
+        context.fillStyle = "#fff";
+        context.textAlign = "center";
+        context.font = '700 30px "Mont Verse Heavy", sans-serif';
+        context.fillText(slide.reference.trim(), width / 2, height - 30, width - 120);
+      }
+      frame = requestAnimationFrame(draw);
+      return;
+    }
     if (image?.complete && image.naturalWidth) context.drawImage(image, 0, 0, width, height);
     // A dark neutral scrim keeps scripture legible over all three supplied photographs.
     context.fillStyle = "rgba(0, 0, 0, 0.56)";
@@ -70,6 +90,8 @@ export function createVerseStage() {
       await Promise.all([document.fonts.load('700 62px "Mont Verse Heavy"'), document.fonts.load('700 30px "Mont Verse Heavy"')]);
       if (current !== generation) return;
       const loaded = new Image();
+      // Outside pictures must load with CORS so the live canvas stays shareable.
+      if (/^https?:/.test(next.imageUrl) && !next.imageUrl.startsWith(location.origin)) loaded.crossOrigin = "anonymous";
       loaded.src = next.imageUrl;
       try { await loaded.decode(); } catch { /* keep the slide available if an image fails */ }
       if (current !== generation) return;
