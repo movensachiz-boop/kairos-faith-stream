@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 
 // Fetches an outside picture server-side so the live canvas can draw it without CORS blocks.
 // Only image hosts we search are allowed, so this cannot be used as an open proxy.
-const ALLOWED_HOSTS = ["upload.wikimedia.org", "commons.wikimedia.org", "en.wikipedia.org", "wikipedia.org"];
+const ALLOWED_HOSTS = ["upload.wikimedia.org", "thumb.wikimedia.org", "commons.wikimedia.org", "en.wikipedia.org", "wikipedia.org"];
 
 export const Route = createFileRoute("/api/public/lookup-image")({
   server: {
