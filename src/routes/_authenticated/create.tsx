@@ -3,8 +3,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import QRCode from "qrcode";
-import { Camera, Check, ImagePlus, Link2, Maximize2, Minimize2, Radio, Smartphone, Upload } from "lucide-react";
-import { AppShell, SectionCard } from "@/components/layout/AppShell";
+import { BookOpen, Camera, Check, ImagePlus, Link2, Maximize2, Minimize2, Music, Radio, Search, Settings2, Smartphone, Square, Upload } from "lucide-react";
+import { AppShell } from "@/components/layout/AppShell";
 import { Button } from "@/components/ui/button";
 import { ministriesQuery } from "@/lib/kairos";
 import { supabase } from "@/integrations/supabase/client";
@@ -40,6 +40,7 @@ function CreatePage() {
   const queryClient = useQueryClient();
   const ministries = useQuery(ministriesQuery());
 
+  const [liveTool, setLiveTool] = useState<"bible" | "search" | "music" | "setup">("bible");
   const [tab, setTab] = useState<"post" | "prayer" | "live">("post");
   const [kind, setKind] = useState<(typeof kinds)[number]>("text");
   const [title, setTitle] = useState("");
@@ -550,8 +551,9 @@ function CreatePage() {
 
   return (
     <AppShell>
-      <div className="mx-auto max-w-2xl space-y-5">
-        <SectionCard title="Create" icon="➕">
+      <div className={`mx-auto space-y-5 ${tab === "live" ? "max-w-7xl" : "max-w-2xl"}`}>
+        <section className="space-y-4">
+          <h2 className="font-display text-lg font-semibold">Create</h2>
           <div className="mb-4 flex gap-2">
             {(["post", "prayer", "live"] as const).map((t) => (
               <button
@@ -567,7 +569,9 @@ function CreatePage() {
           </div>
 
           {tab === "live" ? (
-            <div className="space-y-3">
+            <div className="grid items-start gap-5 md:grid-cols-[minmax(0,1fr)_320px] xl:grid-cols-[minmax(0,1fr)_400px]">
+              <div className="min-w-0 space-y-3">
+              <div className="space-y-3 bg-background md:sticky md:top-28 md:z-10">
               <div
                 ref={shellRef}
                 className={`relative aspect-video overflow-hidden ${expanded ? "flex h-full w-full items-center justify-center bg-ink" : "rounded-md border border-border"}`}
@@ -601,6 +605,7 @@ function CreatePage() {
                 </button>
               </div>
 
+              </div>
               {liveId ? (
                 <div className="space-y-3 border-y border-border py-4">
                   <div className="flex items-center justify-between gap-3">
@@ -652,27 +657,6 @@ function CreatePage() {
                 </div>
               ) : null}
 
-                <VersePanel active={verseOnScreen} selected={Boolean(selectedVerse)} onShow={showVerse} onClear={clearVerse} />
-
-                <LiveSpeechControls onCaption={setLiveCaption} onApprove={showVerse} imageUrl={selectedVerse?.imageUrl} />
-                <LiveLookupPanel onShow={showVerse} />
-
-                <section className="space-y-3 border-y border-border py-4" aria-label="Church logo on video">
-                  <div className="flex items-center justify-between gap-2">
-                    <h3 className="text-sm font-semibold">Church logo on video</h3>
-                    {churchLogo ? <Button type="button" variant="outline" size="sm" onClick={() => { setChurchLogo(null); setChurchLogoPreview(null); }} >Remove</Button> : null}
-                  </div>
-                  <label className="flex cursor-pointer items-center justify-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm font-semibold">
-                    <Upload className="size-4" /> {churchLogo ? "Change logo" : "Choose church logo"}
-                    <input type="file" accept="image/*" className="sr-only" onChange={(event) => void pickChurchLogo(event.target.files?.[0])} />
-                  </label>
-                  {churchLogo ? <>
-                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" aria-label="Logo position">
-                      {(["top-left", "top-right", "bottom-left", "bottom-right"] as const).map((position) => <Button key={position} type="button" size="sm" variant={logoPosition === position ? "default" : "outline"} onClick={() => setLogoPosition(position)}>{position.replace("-", " ")}</Button>)}
-                    </div>
-                    <label className="block text-xs text-muted-foreground">Logo size · {logoSize}%<input type="range" min={8} max={30} value={logoSize} onChange={(event) => setLogoSize(Number(event.target.value))} className="mt-1 w-full accent-primary" /></label>
-                  </> : <p className="text-xs text-muted-foreground">A transparent PNG works best. The logo appears for viewers and in the downloaded recording.</p>}
-                </section>
 
               {recording && !liveId ? (
                 <div className="glass-give space-y-2 rounded-md p-4">
@@ -683,66 +667,27 @@ function CreatePage() {
                 </div>
               ) : null}
 
-              <input
-                value={liveTitle}
-                onChange={(e) => setLiveTitle(e.target.value)}
-                placeholder="Live title (e.g. Sunday Service)"
-                className="glass w-full rounded-xl px-4 py-3 text-sm outline-none placeholder:text-muted-foreground"
-              />
 
-              <label className="flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm">
-                <input type="checkbox" checked={allowFaces} onChange={(e) => setAllowFaces(e.target.checked)} className="size-4 accent-[var(--primary)]" />
-                Let viewers show their faces in a side panel everyone can see
-              </label>
+              {liveId ? <LiveFaces streamId={liveId} isHost allowed={allowFaces} /> : null}
+              {liveId ? <LiveComments streamId={liveId} /> : null}
 
-              {!liveId ? <div className="space-y-2">
-                <label className="text-sm font-semibold" htmlFor="live-poster">Landscape live poster (optional)</label>
-                <label htmlFor="live-poster" className="flex cursor-pointer items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm"><ImagePlus className="size-4" /> {poster ? poster.name : "Choose poster"}</label>
-                <input id="live-poster" type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={(event) => void pickPoster(event.target.files?.[0])} />
-                {posterPreview ? <img src={posterPreview} alt="Live poster preview" className="aspect-video w-full rounded-md border border-border object-contain" /> : null}
-              </div> : null}
-
-              <select
-                value={ministryId}
-                onChange={(e) => setMinistryId(e.target.value)}
-                className="glass w-full rounded-xl bg-card px-4 py-3 text-sm outline-none"
-              >
-                <option value="">Personal live — no ministry (optional)</option>
-                {(ministries.data ?? []).map((m: any) => (
-                  <option key={m.id} value={m.id}>
-                    {m.name}
-                  </option>
-                ))}
-              </select>
-
-              <div className="flex gap-2">
-                {!cameraOn ? (
-                  <button
-                    onClick={startCamera}
-                    className="glass flex-1 rounded-xl py-3 text-sm font-semibold text-azure"
-                  >
-                    Start camera
-                  </button>
-                ) : null}
-                {!liveId ? (
-                  <button
-                    onClick={goLive}
-                    disabled={busy}
-                    className="brand-mark flex-1 rounded-xl py-3 text-sm font-semibold text-ink disabled:opacity-60"
-                  >
-                    {busy ? "Starting…" : "🔴 Go live now"}
-                  </button>
-                ) : (
-                  <button
-                    onClick={endLive}
-                    disabled={busy}
-                    className="flex-1 rounded-xl bg-live py-3 text-sm font-semibold text-destructive-foreground disabled:opacity-60"
-                  >
-                    {busy ? "Ending…" : "End live"}
-                  </button>
-                )}
               </div>
-
+              <aside className="min-w-0 self-start border border-border rounded-md md:sticky md:top-28" aria-label="Live tools">
+              <div className="flex flex-wrap gap-2 border-b border-border bg-background p-3" aria-label="Live actions">
+                {!cameraOn ? <Button type="button" variant="outline" onClick={() => void startCamera()} className="flex-1"><Camera /> Start camera</Button> : null}
+                {!liveId ? <Button type="button" onClick={() => void goLive()} disabled={busy} className="flex-1"><Radio /> {busy ? "Starting…" : "Go live now"}</Button> : <Button type="button" variant="destructive" onClick={() => void endLive()} disabled={busy} className="flex-1"><Square /> {busy ? "Ending…" : "End live"}</Button>}
+              </div>
+                <div className="grid grid-cols-4 gap-1 border-b border-border bg-background p-2" role="tablist" aria-label="Broadcast tools">
+                  {([{ key: "bible", label: "Bible", icon: BookOpen }, { key: "search", label: "Search", icon: Search }, { key: "music", label: "Music", icon: Music }, { key: "setup", label: "Setup", icon: Settings2 }] as const).map(({ key, label, icon: Icon }) => <Button key={key} id={`live-tool-${key}`} type="button" variant={liveTool === key ? "secondary" : "ghost"} role="tab" aria-selected={liveTool === key} aria-controls={`live-panel-${key}`} onClick={() => setLiveTool(key)} className="h-auto flex-col gap-1 px-1 py-2 text-xs"><Icon />{label}</Button>)}
+                </div>
+                <div className="space-y-3 p-3 md:max-h-[calc(100dvh-16rem)] md:overflow-y-auto md:overscroll-contain">
+                  <div id="live-panel-bible" role="tabpanel" aria-labelledby="live-tool-bible" hidden={liveTool !== "bible"}>
+                    <VersePanel active={verseOnScreen} selected={Boolean(selectedVerse)} onShow={showVerse} onClear={clearVerse} />
+                  </div>
+                  <div id="live-panel-search" role="tabpanel" aria-labelledby="live-tool-search" hidden={liveTool !== "search"}>
+                    <LiveLookupPanel onShow={showVerse} />
+                  </div>
+                  <div id="live-panel-music" role="tabpanel" aria-labelledby="live-tool-music" hidden={liveTool !== "music"}>
               <div className="glass space-y-3 rounded-md p-4">
                 <h3 className="font-display text-sm font-semibold">🎵 Background music</h3>
                 <form
@@ -826,13 +771,61 @@ function CreatePage() {
                 </p>
               </div>
 
-              {liveId ? <LiveFaces streamId={liveId} isHost allowed={allowFaces} /> : null}
-              {liveId ? <LiveComments streamId={liveId} /> : null}
+                  </div>
+                  <div id="live-panel-setup" role="tabpanel" aria-labelledby="live-tool-setup" hidden={liveTool !== "setup"} className="space-y-3">
+              <input
+                value={liveTitle}
+                onChange={(e) => setLiveTitle(e.target.value)}
+                placeholder="Live title (e.g. Sunday Service)"
+                className="glass w-full rounded-xl px-4 py-3 text-sm outline-none placeholder:text-muted-foreground"
+              />
 
-              <p className="text-xs text-muted-foreground">
-                When you go live, viewers receive the selected camera shot and Camera 1 sound. Scan the QR cards with up
-                to two more phones, then keep this page open while broadcasting. Best for around 10–20 viewers.
-              </p>
+              <label className="flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm">
+                <input type="checkbox" checked={allowFaces} onChange={(e) => setAllowFaces(e.target.checked)} className="size-4 accent-[var(--primary)]" />
+                Let viewers show their faces in a side panel everyone can see
+              </label>
+
+              {!liveId ? <div className="space-y-2">
+                <label className="text-sm font-semibold" htmlFor="live-poster">Landscape live poster (optional)</label>
+                <label htmlFor="live-poster" className="flex cursor-pointer items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm"><ImagePlus className="size-4" /> {poster ? poster.name : "Choose poster"}</label>
+                <input id="live-poster" type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={(event) => void pickPoster(event.target.files?.[0])} />
+                {posterPreview ? <img src={posterPreview} alt="Live poster preview" className="aspect-video w-full rounded-md border border-border object-contain" /> : null}
+              </div> : null}
+
+              <select
+                value={ministryId}
+                onChange={(e) => setMinistryId(e.target.value)}
+                className="glass w-full rounded-xl bg-card px-4 py-3 text-sm outline-none"
+              >
+                <option value="">Personal live — no ministry (optional)</option>
+                {(ministries.data ?? []).map((m: any) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name}
+                  </option>
+                ))}
+              </select>
+
+                <section className="space-y-3 border-y border-border py-4" aria-label="Church logo on video">
+                  <div className="flex items-center justify-between gap-2">
+                    <h3 className="text-sm font-semibold">Church logo on video</h3>
+                    {churchLogo ? <Button type="button" variant="outline" size="sm" onClick={() => { setChurchLogo(null); setChurchLogoPreview(null); }} >Remove</Button> : null}
+                  </div>
+                  <label className="flex cursor-pointer items-center justify-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm font-semibold">
+                    <Upload className="size-4" /> {churchLogo ? "Change logo" : "Choose church logo"}
+                    <input type="file" accept="image/*" className="sr-only" onChange={(event) => void pickChurchLogo(event.target.files?.[0])} />
+                  </label>
+                  {churchLogo ? <>
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" aria-label="Logo position">
+                      {(["top-left", "top-right", "bottom-left", "bottom-right"] as const).map((position) => <Button key={position} type="button" size="sm" variant={logoPosition === position ? "default" : "outline"} onClick={() => setLogoPosition(position)}>{position.replace("-", " ")}</Button>)}
+                    </div>
+                    <label className="block text-xs text-muted-foreground">Logo size · {logoSize}%<input type="range" min={8} max={30} value={logoSize} onChange={(event) => setLogoSize(Number(event.target.value))} className="mt-1 w-full accent-primary" /></label>
+                  </> : <p className="text-xs text-muted-foreground">A transparent PNG works best. The logo appears for viewers and in the downloaded recording.</p>}
+                </section>
+
+                  </div>
+                  <LiveSpeechControls onCaption={setLiveCaption} onApprove={showVerse} imageUrl={selectedVerse?.imageUrl} />
+                </div>
+              </aside>
             </div>
           ) : (
             <form onSubmit={submit} className="space-y-3">
@@ -907,7 +900,7 @@ function CreatePage() {
               </button>
             </form>
           )}
-        </SectionCard>
+        </section>
 
       </div>
     </AppShell>
