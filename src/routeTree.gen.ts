@@ -25,6 +25,7 @@ import { Route as CallRoomRouteImport } from './routes/call.$room'
 import { Route as CameraIdRouteImport } from './routes/camera.$id'
 import { Route as LiveIndexRouteImport } from './routes/live.index'
 import { Route as LiveIdRouteImport } from './routes/live.$id'
+import { Route as ApiPublicLookupImageRouteImport } from './routes/api/public/lookup-image'
 import { Route as ApiPublicLivePosterIdRouteImport } from './routes/api/public/live-poster.$id'
 
 const IndexRoute = IndexRouteImport.update({
@@ -107,6 +108,11 @@ const LiveIdRoute = LiveIdRouteImport.update({
   path: '/live/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicLookupImageRoute = ApiPublicLookupImageRouteImport.update({
+  id: '/api/public/lookup-image',
+  path: '/api/public/lookup-image',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicLivePosterIdRoute = ApiPublicLivePosterIdRouteImport.update({
   id: '/api/public/live-poster/$id',
   path: '/api/public/live-poster/$id',
@@ -129,6 +135,7 @@ export interface FileRoutesByFullPath {
   '/live/$id': typeof LiveIdRoute
   '/call/': typeof CallIndexRoute
   '/live/': typeof LiveIndexRoute
+  '/api/public/lookup-image': typeof ApiPublicLookupImageRoute
   '/api/public/live-poster/$id': typeof ApiPublicLivePosterIdRoute
 }
 export interface FileRoutesByTo {
@@ -147,6 +154,7 @@ export interface FileRoutesByTo {
   '/live/$id': typeof LiveIdRoute
   '/call': typeof CallIndexRoute
   '/live': typeof LiveIndexRoute
+  '/api/public/lookup-image': typeof ApiPublicLookupImageRoute
   '/api/public/live-poster/$id': typeof ApiPublicLivePosterIdRoute
 }
 export interface FileRoutesById {
@@ -167,6 +175,7 @@ export interface FileRoutesById {
   '/live/$id': typeof LiveIdRoute
   '/call/': typeof CallIndexRoute
   '/live/': typeof LiveIndexRoute
+  '/api/public/lookup-image': typeof ApiPublicLookupImageRoute
   '/api/public/live-poster/$id': typeof ApiPublicLivePosterIdRoute
 }
 export interface FileRouteTypes {
@@ -187,6 +196,7 @@ export interface FileRouteTypes {
     | '/live/$id'
     | '/call/'
     | '/live/'
+    | '/api/public/lookup-image'
     | '/api/public/live-poster/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -205,6 +215,7 @@ export interface FileRouteTypes {
     | '/live/$id'
     | '/call'
     | '/live'
+    | '/api/public/lookup-image'
     | '/api/public/live-poster/$id'
   id:
     | '__root__'
@@ -224,6 +235,7 @@ export interface FileRouteTypes {
     | '/live/$id'
     | '/call/'
     | '/live/'
+    | '/api/public/lookup-image'
     | '/api/public/live-poster/$id'
   fileRoutesById: FileRoutesById
 }
@@ -241,6 +253,7 @@ export interface RootRouteChildren {
   LiveIdRoute: typeof LiveIdRoute
   CallIndexRoute: typeof CallIndexRoute
   LiveIndexRoute: typeof LiveIndexRoute
+  ApiPublicLookupImageRoute: typeof ApiPublicLookupImageRoute
   ApiPublicLivePosterIdRoute: typeof ApiPublicLivePosterIdRoute
 }
 
@@ -358,6 +371,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LiveIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/lookup-image': {
+      id: '/api/public/lookup-image'
+      path: '/api/public/lookup-image'
+      fullPath: '/api/public/lookup-image'
+      preLoaderRoute: typeof ApiPublicLookupImageRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/live-poster/$id': {
       id: '/api/public/live-poster/$id'
       path: '/api/public/live-poster/$id'
@@ -397,6 +417,7 @@ const rootRouteChildren: RootRouteChildren = {
   LiveIdRoute: LiveIdRoute,
   CallIndexRoute: CallIndexRoute,
   LiveIndexRoute: LiveIndexRoute,
+  ApiPublicLookupImageRoute: ApiPublicLookupImageRoute,
   ApiPublicLivePosterIdRoute: ApiPublicLivePosterIdRoute,
 }
 export const routeTree = rootRouteImport
