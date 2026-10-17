@@ -56,6 +56,17 @@ function CreatePage() {
   const [expanded, setExpanded] = useState(false);
   const streamRef = useRef<MediaStream | null>(null);
   const cameraStartRef = useRef<Promise<void> | null>(null);
+  const [videoDevices, setVideoDevices] = useState<{ id: string; label: string }[]>([]);
+  const [mainDeviceId, setMainDeviceId] = useState("");
+  useEffect(() => {
+    const md = navigator.mediaDevices;
+    if (!md?.addEventListener) return;
+    const onChange = () => {
+      void md.enumerateDevices().then((all) => setVideoDevices(all.filter((d) => d.kind === "videoinput").map((d, i) => ({ id: d.deviceId, label: d.label || `Camera ${i + 1}` })))).catch(() => {});
+    };
+    md.addEventListener("devicechange", onChange);
+    return () => md.removeEventListener("devicechange", onChange);
+  }, []);
   const [cameraOn, setCameraOn] = useState(false);
   const [liveId, setLiveId] = useState<string | null>(null);
   const [liveTitle, setLiveTitle] = useState("");
@@ -316,9 +327,41 @@ function CreatePage() {
   function startCamera() {
     if (cameraStartRef.current) return cameraStartRef.current;
     if (streamRef.current) return Promise.resolve();
-    const pending = acquireCamera().finally(() => { cameraStartRef.current = null; });
+    const pending = acquireCamera().finally(() => { cameraStartRef.current = null; void refreshVideoDevices(); });
     cameraStartRef.current = pending;
     return pending;
+  }
+
+  async function refreshVideoDevices() {
+    try {
+      const all = await navigator.mediaDevices.enumerateDevices();
+      setVideoDevices(all.filter((d) => d.kind === "videoinput").map((d, i) => ({ id: d.deviceId, label: d.label || `Camera ${i + 1}` })));
+    } catch { /* ignore */ }
+  }
+
+  async function chooseMainCamera(deviceId: string) {
+    const stream = streamRef.current;
+    if (!stream) { toast.error("Start the camera first."); return; }
+    try {
+      const fresh = await navigator.mediaDevices.getUserMedia({
+        video: { deviceId: { exact: deviceId }, width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: false,
+      });
+      const track = fresh.getVideoTracks()[0];
+      if (!track) return;
+      stream.getVideoTracks().forEach((old) => { stream.removeTrack(old); old.stop(); });
+      stream.addTrack(track);
+      hostRef.current?.setMainVideo(track);
+      if (videoRef.current && videoRef.current.srcObject === stream) {
+        videoRef.current.srcObject = null;
+        videoRef.current.srcObject = stream;
+        void videoRef.current.play().catch(() => {});
+      }
+      setMainDeviceId(deviceId);
+      toast.success("Main camera changed. Sound still comes from this device's microphone.");
+    } catch (err: any) {
+      toast.error(err?.message ?? "That camera could not be opened.");
+    }
   }
 
   async function pickPoster(file: File | undefined) {
@@ -676,6 +719,19 @@ function CreatePage() {
               <div className="flex flex-wrap gap-2 border-b border-border bg-background p-3" aria-label="Live actions">
                 {!cameraOn ? <Button type="button" variant="outline" onClick={() => void startCamera()} className="flex-1"><Camera /> Start camera</Button> : null}
                 {!liveId ? <Button type="button" onClick={() => void goLive()} disabled={busy} className="flex-1"><Radio /> {busy ? "Starting…" : "Go live now"}</Button> : <Button type="button" variant="destructive" onClick={() => void endLive()} disabled={busy} className="flex-1"><Square /> {busy ? "Ending…" : "End live"}</Button>}
+                {cameraOn ? (
+                  <div className="w-full space-y-1">
+                    <label htmlFor="main-camera-source" className="text-xs font-medium text-muted-foreground">Main camera (Camera 1) — this device or a cable camera</label>
+                    <div className="flex gap-2">
+                      <select id="main-camera-source" value={mainDeviceId} onChange={(e) => { if (e.target.value) void chooseMainCamera(e.target.value); }} className="h-9 min-w-0 flex-1 rounded-md border border-border bg-background px-2 text-sm">
+                        <option value="">Built-in camera (default)</option>
+                        {videoDevices.map((d) => <option key={d.id} value={d.id}>{d.label}</option>)}
+                      </select>
+                      <Button type="button" variant="outline" size="sm" onClick={() => void refreshVideoDevices()}>Refresh</Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">Plug in a USB camera or HDMI capture card, tap Refresh, then pick it. Phones 2 and 3 still join by QR.</p>
+                  </div>
+                ) : null}
               </div>
                 <div className="grid grid-cols-4 gap-1 border-b border-border bg-background p-2" role="tablist" aria-label="Broadcast tools">
                   {([{ key: "bible", label: "Bible", icon: BookOpen }, { key: "search", label: "Search", icon: Search }, { key: "music", label: "Music", icon: Music }, { key: "setup", label: "Setup", icon: Settings2 }] as const).map(({ key, label, icon: Icon }) => <Button key={key} id={`live-tool-${key}`} type="button" variant={liveTool === key ? "secondary" : "ghost"} role="tab" aria-selected={liveTool === key} aria-controls={`live-panel-${key}`} onClick={() => setLiveTool(key)} className="h-auto flex-col gap-1 px-1 py-2 text-xs"><Icon />{label}</Button>)}
