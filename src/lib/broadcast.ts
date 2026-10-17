@@ -58,6 +58,7 @@ export type HostController = {
   finishRecording: () => Promise<Blob | null>;
   setLogo: (logo: HTMLImageElement | null, position: LogoPosition, size: number) => void;
   setCaption: (text: string) => void;
+  setMainVideo: (track: MediaStreamTrack) => void;
 };
 
 export type LogoPosition = "top-left" | "top-right" | "bottom-left" | "bottom-right";
@@ -112,7 +113,7 @@ export function startHost(
     img.onerror = () => { current.busy = false; };
     img.src = message.data;
   }
-  const mainVideo = media.getVideoTracks()[0] ?? null;
+  let mainVideo = media.getVideoTracks()[0] ?? null;
   let activeVideo = mainVideo;
   let activeSlot: 1 | CameraSlot = 1;
   let verseVisible = false;
@@ -393,7 +394,14 @@ export function startHost(
 
   function setCaption(text: string) { caption = text; }
 
-  return { stop, useCamera, showVerse, verseCanvas: verseStage.canvas, finishRecording, setLogo, setCaption };
+  // Swap Camera 1's picture (e.g. to a cable-connected camera) without touching the sound.
+  function setMainVideo(track: MediaStreamTrack) {
+    mainVideo = track;
+    videoFor(track);
+    if (activeSlot === 1 && !verseVisible) activeVideo = track;
+  }
+
+  return { stop, useCamera, showVerse, verseCanvas: verseStage.canvas, finishRecording, setLogo, setCaption, setMainVideo };
 }
 
 export function joinAsViewer(streamId: string, onStream: (stream: MediaStream) => void, onEnd: () => void) {
