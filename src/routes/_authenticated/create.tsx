@@ -309,7 +309,7 @@ function CreatePage() {
   async function acquireCamera() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: { ideal: 1280 }, height: { ideal: 720 }, aspectRatio: { ideal: 16 / 9 } },
+        video: { ...(mainDeviceId ? { deviceId: { exact: mainDeviceId } } : {}), width: { ideal: 1280 }, height: { ideal: 720 }, aspectRatio: { ideal: 16 / 9 } },
         audio: { echoCancellation: true, noiseSuppression: false, autoGainControl: false, channelCount: 1, sampleRate: 48000 },
       });
       streamRef.current = stream;
@@ -332,11 +332,21 @@ function CreatePage() {
     return pending;
   }
 
-  async function refreshVideoDevices() {
+  async function refreshVideoDevices(askPermission = false) {
     try {
-      const all = await navigator.mediaDevices.enumerateDevices();
-      setVideoDevices(all.filter((d) => d.kind === "videoinput").map((d, i) => ({ id: d.deviceId, label: d.label || `Camera ${i + 1}` })));
-    } catch { /* ignore */ }
+      let all = await navigator.mediaDevices.enumerateDevices();
+      // Browsers hide camera names until permission is given once.
+      if (askPermission && !streamRef.current && all.some((d) => d.kind === "videoinput" && !d.label)) {
+        const probe = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        probe.getTracks().forEach((t) => t.stop());
+        all = await navigator.mediaDevices.enumerateDevices();
+      }
+      const cams = all.filter((d) => d.kind === "videoinput").map((d, i) => ({ id: d.deviceId, label: d.label || `Camera ${i + 1}` }));
+      setVideoDevices(cams);
+      if (askPermission) toast.success(cams.length ? `Found ${cams.length} camera${cams.length > 1 ? "s" : ""}.` : "No cameras found. Check the cable.");
+    } catch (err: any) {
+      if (askPermission) toast.error(err?.message ?? "Could not look for cameras.");
+    }
   }
 
   async function chooseMainCamera(deviceId: string) {
@@ -719,19 +729,17 @@ function CreatePage() {
               <div className="flex flex-wrap gap-2 border-b border-border bg-background p-3" aria-label="Live actions">
                 {!cameraOn ? <Button type="button" variant="outline" onClick={() => void startCamera()} className="flex-1"><Camera /> Start camera</Button> : null}
                 {!liveId ? <Button type="button" onClick={() => void goLive()} disabled={busy} className="flex-1"><Radio /> {busy ? "Starting…" : "Go live now"}</Button> : <Button type="button" variant="destructive" onClick={() => void endLive()} disabled={busy} className="flex-1"><Square /> {busy ? "Ending…" : "End live"}</Button>}
-                {cameraOn ? (
-                  <div className="w-full space-y-1">
-                    <label htmlFor="main-camera-source" className="text-xs font-medium text-muted-foreground">Main camera (Camera 1) — this device or a cable camera</label>
-                    <div className="flex gap-2">
-                      <select id="main-camera-source" value={mainDeviceId} onChange={(e) => { if (e.target.value) void chooseMainCamera(e.target.value); }} className="h-9 min-w-0 flex-1 rounded-md border border-border bg-background px-2 text-sm">
-                        <option value="">Built-in camera (default)</option>
-                        {videoDevices.map((d) => <option key={d.id} value={d.id}>{d.label}</option>)}
-                      </select>
-                      <Button type="button" variant="outline" size="sm" onClick={() => void refreshVideoDevices()}>Refresh</Button>
-                    </div>
-                    <p className="text-xs text-muted-foreground">Plug in a USB camera or HDMI capture card, tap Refresh, then pick it. Phones 2 and 3 still join by QR.</p>
+                <div className="w-full space-y-1">
+                  <label htmlFor="main-camera-source" className="text-xs font-medium text-muted-foreground">Main camera (Camera 1) — pick a cable camera to skip this device's camera</label>
+                  <div className="flex gap-2">
+                    <select id="main-camera-source" value={mainDeviceId} onChange={(e) => { const v = e.target.value; if (cameraOn) { if (v) void chooseMainCamera(v); } else setMainDeviceId(v); }} className="h-9 min-w-0 flex-1 rounded-md border border-border bg-background px-2 text-sm">
+                      <option value="">This device's camera</option>
+                      {videoDevices.map((d) => <option key={d.id} value={d.id}>{d.label}</option>)}
+                    </select>
+                    <Button type="button" variant="outline" size="sm" onClick={() => void refreshVideoDevices(true)}>Find cameras</Button>
                   </div>
-                ) : null}
+                  <p className="text-xs text-muted-foreground">Plug in a USB camera or HDMI capture card, tap Find cameras, pick it, then Start camera. Phones 2 and 3 still join by QR.</p>
+                </div>
               </div>
                 <div className="grid grid-cols-4 gap-1 border-b border-border bg-background p-2" role="tablist" aria-label="Broadcast tools">
                   {([{ key: "bible", label: "Bible", icon: BookOpen }, { key: "search", label: "Search", icon: Search }, { key: "music", label: "Music", icon: Music }, { key: "setup", label: "Setup", icon: Settings2 }] as const).map(({ key, label, icon: Icon }) => <Button key={key} id={`live-tool-${key}`} type="button" variant={liveTool === key ? "secondary" : "ghost"} role="tab" aria-selected={liveTool === key} aria-controls={`live-panel-${key}`} onClick={() => setLiveTool(key)} className="h-auto flex-col gap-1 px-1 py-2 text-xs"><Icon />{label}</Button>)}
