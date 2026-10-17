@@ -56,6 +56,17 @@ function CreatePage() {
   const [expanded, setExpanded] = useState(false);
   const streamRef = useRef<MediaStream | null>(null);
   const cameraStartRef = useRef<Promise<void> | null>(null);
+  const [videoDevices, setVideoDevices] = useState<{ id: string; label: string }[]>([]);
+  const [mainDeviceId, setMainDeviceId] = useState("");
+  useEffect(() => {
+    const md = navigator.mediaDevices;
+    if (!md?.addEventListener) return;
+    const onChange = () => {
+      void md.enumerateDevices().then((all) => setVideoDevices(all.filter((d) => d.kind === "videoinput").map((d, i) => ({ id: d.deviceId, label: d.label || `Camera ${i + 1}` })))).catch(() => {});
+    };
+    md.addEventListener("devicechange", onChange);
+    return () => md.removeEventListener("devicechange", onChange);
+  }, []);
   const [cameraOn, setCameraOn] = useState(false);
   const [liveId, setLiveId] = useState<string | null>(null);
   const [liveTitle, setLiveTitle] = useState("");
@@ -316,9 +327,41 @@ function CreatePage() {
   function startCamera() {
     if (cameraStartRef.current) return cameraStartRef.current;
     if (streamRef.current) return Promise.resolve();
-    const pending = acquireCamera().finally(() => { cameraStartRef.current = null; });
+    const pending = acquireCamera().finally(() => { cameraStartRef.current = null; void refreshVideoDevices(); });
     cameraStartRef.current = pending;
     return pending;
+  }
+
+  async function refreshVideoDevices() {
+    try {
+      const all = await navigator.mediaDevices.enumerateDevices();
+      setVideoDevices(all.filter((d) => d.kind === "videoinput").map((d, i) => ({ id: d.deviceId, label: d.label || `Camera ${i + 1}` })));
+    } catch { /* ignore */ }
+  }
+
+  async function chooseMainCamera(deviceId: string) {
+    const stream = streamRef.current;
+    if (!stream) { toast.error("Start the camera first."); return; }
+    try {
+      const fresh = await navigator.mediaDevices.getUserMedia({
+        video: { deviceId: { exact: deviceId }, width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: false,
+      });
+      const track = fresh.getVideoTracks()[0];
+      if (!track) return;
+      stream.getVideoTracks().forEach((old) => { stream.removeTrack(old); old.stop(); });
+      stream.addTrack(track);
+      hostRef.current?.setMainVideo(track);
+      if (videoRef.current && videoRef.current.srcObject === stream) {
+        videoRef.current.srcObject = null;
+        videoRef.current.srcObject = stream;
+        void videoRef.current.play().catch(() => {});
+      }
+      setMainDeviceId(deviceId);
+      toast.success("Main camera changed. Sound still comes from this device's microphone.");
+    } catch (err: any) {
+      toast.error(err?.message ?? "That camera could not be opened.");
+    }
   }
 
   async function pickPoster(file: File | undefined) {
