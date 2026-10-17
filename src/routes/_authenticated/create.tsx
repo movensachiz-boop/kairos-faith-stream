@@ -58,6 +58,9 @@ function CreatePage() {
   const cameraStartRef = useRef<Promise<void> | null>(null);
   const [videoDevices, setVideoDevices] = useState<{ id: string; label: string }[]>([]);
   const [mainDeviceId, setMainDeviceId] = useState("");
+  const [audioDevices, setAudioDevices] = useState<{ id: string; label: string }[]>([]);
+  const [mainAudioId, setMainAudioId] = useState("");
+  const voiceSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
   useEffect(() => {
     const md = navigator.mediaDevices;
     if (!md?.addEventListener) return;
@@ -194,7 +197,12 @@ function CreatePage() {
     const dest = ctx.createMediaStreamDestination();
     const voiceGain = ctx.createGain();
     voiceGain.gain.value = voiceVol / 100;
-    if (stream.getAudioTracks().length) ctx.createMediaStreamSource(stream).connect(voiceGain);
+    voiceSourceRef.current = null;
+    if (stream.getAudioTracks().length) {
+      const src = ctx.createMediaStreamSource(new MediaStream(stream.getAudioTracks()));
+      src.connect(voiceGain);
+      voiceSourceRef.current = src;
+    }
     voiceGain.connect(dest);
 
     const musicGain = ctx.createGain();
@@ -310,7 +318,9 @@ function CreatePage() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { ...(mainDeviceId ? { deviceId: { exact: mainDeviceId } } : {}), width: { ideal: 1280 }, height: { ideal: 720 }, aspectRatio: { ideal: 16 / 9 } },
-        audio: { echoCancellation: true, noiseSuppression: false, autoGainControl: false, channelCount: 1, sampleRate: 48000 },
+        audio: mainAudioId
+          ? { deviceId: { exact: mainAudioId }, echoCancellation: false, noiseSuppression: false, autoGainControl: false, sampleRate: 48000 }
+          : { echoCancellation: true, noiseSuppression: false, autoGainControl: false, channelCount: 1, sampleRate: 48000 },
       });
       streamRef.current = stream;
       buildMix(stream);
