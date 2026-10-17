@@ -346,16 +346,44 @@ function CreatePage() {
     try {
       let all = await navigator.mediaDevices.enumerateDevices();
       // Browsers hide camera names until permission is given once.
-      if (askPermission && !streamRef.current && all.some((d) => d.kind === "videoinput" && !d.label)) {
-        const probe = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      if (askPermission && !streamRef.current && all.some((d) => (d.kind === "videoinput" || d.kind === "audioinput") && !d.label)) {
+        const probe = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
         probe.getTracks().forEach((t) => t.stop());
         all = await navigator.mediaDevices.enumerateDevices();
       }
       const cams = all.filter((d) => d.kind === "videoinput").map((d, i) => ({ id: d.deviceId, label: d.label || `Camera ${i + 1}` }));
       setVideoDevices(cams);
+      setAudioDevices(all.filter((d) => d.kind === "audioinput" && d.deviceId !== "default" && d.deviceId !== "communications").map((d, i) => ({ id: d.deviceId, label: d.label || `Sound input ${i + 1}` })));
       if (askPermission) toast.success(cams.length ? `Found ${cams.length} camera${cams.length > 1 ? "s" : ""}.` : "No cameras found. Check the cable.");
     } catch (err: any) {
       if (askPermission) toast.error(err?.message ?? "Could not look for cameras.");
+    }
+  }
+
+  async function chooseMainSound(deviceId: string) {
+    const stream = streamRef.current;
+    const ctx = audioCtxRef.current;
+    const gain = voiceGainRef.current;
+    if (!stream || !ctx || !gain) { setMainAudioId(deviceId); return; }
+    try {
+      const fresh = await navigator.mediaDevices.getUserMedia({
+        audio: deviceId
+          ? { deviceId: { exact: deviceId }, echoCancellation: false, noiseSuppression: false, autoGainControl: false, sampleRate: 48000 }
+          : { echoCancellation: true, noiseSuppression: false, autoGainControl: false, channelCount: 1, sampleRate: 48000 },
+        video: false,
+      });
+      const track = fresh.getAudioTracks()[0];
+      if (!track) return;
+      voiceSourceRef.current?.disconnect();
+      stream.getAudioTracks().forEach((old) => { stream.removeTrack(old); old.stop(); });
+      stream.addTrack(track);
+      const src = ctx.createMediaStreamSource(new MediaStream([track]));
+      src.connect(gain);
+      voiceSourceRef.current = src;
+      setMainAudioId(deviceId);
+      toast.success("Sound source changed.");
+    } catch (err: any) {
+      toast.error(err?.message ?? "That sound input could not be opened.");
     }
   }
 
@@ -748,7 +776,12 @@ function CreatePage() {
                     </select>
                     <Button type="button" variant="outline" size="sm" onClick={() => void refreshVideoDevices(true)}>Find cameras</Button>
                   </div>
-                  <p className="text-xs text-muted-foreground">Plug in a USB camera or HDMI capture card, tap Find cameras, pick it, then Start camera. Phones 2 and 3 still join by QR.</p>
+                  <label htmlFor="main-sound-source" className="block pt-1 text-xs font-medium text-muted-foreground">Sound source</label>
+                  <select id="main-sound-source" value={mainAudioId} onChange={(e) => void chooseMainSound(e.target.value)} className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm">
+                    <option value="">This device's microphone</option>
+                    {audioDevices.map((d) => <option key={d.id} value={d.id}>{d.label}</option>)}
+                  </select>
+                  <p className="text-xs text-muted-foreground">Plug in a USB camera, HDMI capture card or sound mixer, tap Find cameras, pick the picture and sound, then Start camera. Phones 2 and 3 still join by QR.</p>
                 </div>
               </div>
                 <div className="grid grid-cols-4 gap-1 border-b border-border bg-background p-2" role="tablist" aria-label="Broadcast tools">
