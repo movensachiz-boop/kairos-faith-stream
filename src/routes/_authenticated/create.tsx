@@ -6,6 +6,7 @@ import QRCode from "qrcode";
 import { BookOpen, Camera, Check, ImagePlus, Link2, Maximize2, Minimize2, Music, Radio, Search, Settings2, Smartphone, Square, Upload } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ministriesQuery } from "@/lib/kairos";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -711,6 +712,18 @@ function CreatePage() {
                    <div className="flex flex-wrap gap-2">
                      <Button type="button" variant={activeCamera === 1 && !verseOnScreen ? "default" : "outline"} onClick={() => selectCamera(1)}><Camera /> Camera 1{activeCamera === 1 && !verseOnScreen ? " · On air" : ""}</Button>
                      <Button type="button" variant="outline" aria-expanded={showCameraGrid} onClick={() => setShowCameraGrid((open) => !open)}>{showCameraGrid ? "Hide cameras" : "View all cameras"}</Button>
+                     <Dialog>
+                       <DialogTrigger asChild>
+                         <Button type="button"><Smartphone /> Show camera QR codes</Button>
+                       </DialogTrigger>
+                       <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
+                         <DialogHeader><DialogTitle>Scan with Camera 2 and Camera 3 phones</DialogTitle></DialogHeader>
+                         <div className="grid gap-3 sm:grid-cols-2">
+                           <PairingQR streamId={liveId} slot={2} token={cameraTokensRef.current[2]} status={cameraStatus[2]} />
+                           <PairingQR streamId={liveId} slot={3} token={cameraTokensRef.current[3]} status={cameraStatus[3]} />
+                         </div>
+                       </DialogContent>
+                     </Dialog>
                    </div>
                    {showCameraGrid ? <div className="grid gap-3 sm:grid-cols-3">
                     <CameraTile
@@ -1067,7 +1080,9 @@ function PairingQR({
   useEffect(() => {
     const cameraLink = `${window.location.origin}/camera/${streamId}?slot=${slot}&token=${encodeURIComponent(token)}`;
     setLink(cameraLink);
-    void QRCode.toDataURL(cameraLink, { width: 220, margin: 1 }).then(setQr);
+    QRCode.toDataURL(cameraLink, { width: 320, margin: 2, color: { dark: "#000000", light: "#ffffff" } })
+      .then(setQr)
+      .catch(() => setQr(""));
   }, [slot, streamId, token]);
 
   async function copyLink() {
