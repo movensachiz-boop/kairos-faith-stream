@@ -4,6 +4,8 @@ import { Camera, CameraOff, CheckCircle2, Radio } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { joinAsRemoteCamera, type CameraSlot, type CameraStatus } from "@/lib/broadcast";
 
+import { landscapeFrame } from "@/lib/video-frame";
+
 type CameraSearch = { slot: number | undefined; token: string | undefined };
 
 export const Route = createFileRoute("/camera/$id")({
@@ -65,41 +67,34 @@ function RemoteCameraPage() {
         audio: false,
       });
       streamRef.current = media;
-      // Phones held upright deliver a portrait picture even when landscape is
-      // requested. Rotate it into a fixed 1280x720 landscape stream so the
-      // main broadcast always receives a wide picture.
-      const track = media.getVideoTracks()[0];
-      const settings = track?.getSettings() ?? {};
+      // Stable landscape output preserves upright subjects as the phone turns.
       let outgoing = media;
-      if ((settings.height ?? 0) > (settings.width ?? 0)) {
+      {
         const probe = document.createElement("video");
         probe.muted = true;
         probe.playsInline = true;
         probe.srcObject = media;
         await probe.play().catch(() => {});
-        const srcW = probe.videoWidth || settings.width || 720;
-        const srcH = probe.videoHeight || settings.height || 1280;
         const canvas = document.createElement("canvas");
         canvas.width = 1280;
         canvas.height = 720;
         const ctx = canvas.getContext("2d");
         if (ctx) {
           const draw = () => {
-            // Rotate the portrait frame 90° so it fills the landscape canvas.
-            ctx.save();
-            ctx.translate(1280 / 2, 720 / 2);
-            ctx.rotate(Math.PI / 2);
-            const scale = Math.max(720 / srcW, 1280 / srcH);
-            ctx.drawImage(probe, (-srcW * scale) / 2, (-srcH * scale) / 2, srcW * scale, srcH * scale);
-            ctx.restore();
+            const frame = landscapeFrame(probe.videoWidth, probe.videoHeight);
+            if (!frame || probe.readyState < 2) return;
+            ctx.fillStyle = "#000";
+            ctx.fillRect(0, 0, 1280, 720);
+            ctx.drawImage(probe, frame.x, frame.y, frame.width, frame.height);
           };
           const timer = window.setInterval(draw, 1000 / 30);
           draw();
+          outgoing = canvas.captureStream(30);
           rotateCleanupRef.current = () => {
             window.clearInterval(timer);
             probe.srcObject = null;
+            outgoing.getTracks().forEach((track) => track.stop());
           };
-          outgoing = canvas.captureStream(30);
         }
       }
       if (videoRef.current) {
@@ -138,7 +133,7 @@ function RemoteCameraPage() {
       </div>
 
       <div className="relative overflow-hidden rounded-md border border-border bg-secondary">
-        <video ref={videoRef} muted playsInline className="aspect-video w-full object-cover" />
+        <video ref={videoRef} muted playsInline className="aspect-video w-full bg-video-surface object-contain" />
         {status === "ready" || status === "disconnected" ? (
           <div className="absolute inset-0 grid place-items-center text-muted-foreground">
             <CameraOff className="size-8" />

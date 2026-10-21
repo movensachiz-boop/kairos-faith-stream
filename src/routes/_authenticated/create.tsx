@@ -146,11 +146,9 @@ function CreatePage() {
   }, [voiceVol]);
   useEffect(() => {
     if (!videoRef.current) return;
-    videoRef.current.srcObject = verseOnScreen && hostRef.current
-      ? hostRef.current.verseCanvas.captureStream(24)
-      : activeCamera === 1 ? streamRef.current : (remoteStreamsRef.current[activeCamera] ?? streamRef.current);
+    videoRef.current.srcObject = hostRef.current?.previewStream ?? streamRef.current;
     void videoRef.current.play().catch(() => {});
-  }, [verseOnScreen, activeCamera, cameraStatus]);
+  }, [liveId, verseOnScreen, activeCamera, cameraStatus]);
   useEffect(() => {
     if (!showCameraGrid) return;
     for (const slot of [2, 3] as const) {
@@ -519,6 +517,7 @@ function CreatePage() {
       return;
     }
     setLiveId(data.id);
+    setShowCameraGrid(true);
     setStartedAt(startTime);
     setClock(Date.now());
     hostRef.current = startHost(
@@ -662,26 +661,26 @@ function CreatePage() {
           </div>
 
           {tab === "live" ? (
-            <div className="grid items-start gap-5 md:grid-cols-[minmax(0,1fr)_320px] xl:grid-cols-[minmax(0,1fr)_400px]">
+            <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_320px] xl:grid-cols-[minmax(0,1fr)_400px]">
               <div className="min-w-0 space-y-3">
               <div className={`space-y-3 bg-background ${!showCameraGrid && !minimized ? "md:sticky md:top-28" : ""}`}>
               <div
                 ref={shellRef}
-                className={`relative aspect-video overflow-hidden ${minimized ? "w-44 rounded-md border border-border" : expanded ? "flex h-full w-full items-center justify-center bg-ink" : "rounded-md border border-border"}`}
+                className={`relative aspect-video overflow-hidden ${minimized ? "w-44 rounded-md border border-border" : expanded ? "flex h-full w-full items-center justify-center bg-video-surface" : "rounded-md border border-border"}`}
               >
                 <video
                   ref={videoRef}
                   muted
                   playsInline
-                  className="h-full w-full bg-ink object-contain"
+                  className="h-full w-full bg-video-surface object-contain"
                 />
                 {liveId ? (
                   <span className="absolute left-3 top-3 flex items-center gap-2 rounded-md bg-live px-3 py-1 text-xs font-bold text-destructive-foreground">
                     <span className="live-dot" /> LIVE · {elapsedLiveTime(startedAt, clock)} · {viewers} watching
                   </span>
                 ) : null}
-                {churchLogoPreview ? <img src={churchLogoPreview} alt="Church logo on video" className={`pointer-events-none absolute w-[var(--logo-width)] max-w-[30%] object-contain ${logoPosition === "top-left" ? "left-3 top-3" : logoPosition === "top-right" ? "right-3 top-3" : logoPosition === "bottom-left" ? "bottom-3 left-3" : "bottom-3 right-3"}`} style={{ "--logo-width": `${logoSize}%` } as React.CSSProperties} /> : null}
-                 {liveCaption && !verseOnScreen ? <p className="pointer-events-none absolute bottom-6 left-1/2 max-w-[84%] -translate-x-1/2 bg-foreground px-4 py-2 text-center font-verse-heavy text-sm text-background sm:text-lg">{liveCaption}</p> : null}
+                {churchLogoPreview && !liveId ? <img src={churchLogoPreview} alt="Church logo on video" className={`pointer-events-none absolute w-[var(--logo-width)] max-w-[30%] object-contain ${logoPosition === "top-left" ? "left-3 top-3" : logoPosition === "top-right" ? "right-3 top-3" : logoPosition === "bottom-left" ? "bottom-3 left-3" : "bottom-3 right-3"}`} style={{ "--logo-width": `${logoSize}%` } as React.CSSProperties} /> : null}
+                 {liveCaption && !verseOnScreen && !liveId ? <p className="pointer-events-none absolute bottom-6 left-1/2 max-w-[84%] -translate-x-1/2 bg-foreground px-4 py-2 text-center font-verse-heavy text-sm text-background sm:text-lg">{liveCaption}</p> : null}
                 {!cameraOn ? (
                   <div className="absolute inset-0 flex items-center justify-center text-sm text-muted-foreground">
                     Camera is off
@@ -735,7 +734,7 @@ function CreatePage() {
                        </DialogContent>
                      </Dialog>
                    </div>
-                   {showCameraGrid ? <div className="grid gap-3 sm:grid-cols-3">
+                   {showCameraGrid ? <div className="grid grid-cols-1 gap-3 min-[480px]:grid-cols-2 xl:grid-cols-3">
                     <CameraTile
                       slot={1}
                       active={activeCamera === 1}
@@ -775,7 +774,7 @@ function CreatePage() {
               {recording && !liveId ? (
                 <div className="glass-give space-y-2 rounded-md p-4">
                   <h3 className="font-display text-sm font-semibold">Your live recording is ready</h3>
-                  <video src={recording.url} controls playsInline className="aspect-video w-full rounded-md bg-ink" />
+                  <video src={recording.url} controls playsInline className="aspect-video w-full rounded-md bg-video-surface" />
                   <a href={recording.url} download={recording.name} className="brand-mark block rounded-md py-3 text-center text-sm font-semibold text-primary-foreground">Download video</a>
                   <p className="text-xs text-muted-foreground">Saved on this device only — download it before leaving this page.</p>
                 </div>
@@ -1051,14 +1050,14 @@ function CameraTile({
   onSelect: () => void;
 }) {
   return (
-    <div className={`overflow-hidden rounded-md border-2 ${active ? "border-destructive" : "border-border"}`}>
+    <div className={`min-w-0 overflow-hidden rounded-md border-2 ${active ? "border-destructive" : "border-border"}`}>
       <div
         role="button"
         tabIndex={0}
         aria-label={`Switch to Camera ${slot}`}
         onClick={() => connected && !active && onSelect()}
         onKeyDown={(e) => e.key === "Enter" && connected && !active && onSelect()}
-        className={`relative aspect-video bg-secondary ${connected && !active ? "cursor-pointer" : ""}`}
+        className={`relative aspect-video bg-video-surface ${connected && !active ? "cursor-pointer" : ""}`}
       >
         {preview}
         {!connected ? (
@@ -1070,7 +1069,7 @@ function CameraTile({
           </span>
         ) : null}
       </div>
-      <div className="flex items-center justify-between gap-2 p-2">
+      <div className="flex flex-wrap items-center justify-between gap-2 p-2">
         <span className="text-xs font-semibold">Camera {slot}</span>
         <Button type="button" size="sm" variant={active ? "secondary" : "outline"} disabled={!connected || active} onClick={onSelect}>
           {active ? <><Check /> Live</> : "Use shot"}
