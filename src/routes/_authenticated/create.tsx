@@ -55,6 +55,7 @@ function CreatePage() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const shellRef = useRef<HTMLDivElement | null>(null);
   const [expanded, setExpanded] = useState(false);
+  const [minimized, setMinimized] = useState(false);
   const streamRef = useRef<MediaStream | null>(null);
   const cameraStartRef = useRef<Promise<void> | null>(null);
   const [videoDevices, setVideoDevices] = useState<{ id: string; label: string }[]>([]);
@@ -663,10 +664,10 @@ function CreatePage() {
           {tab === "live" ? (
             <div className="grid items-start gap-5 md:grid-cols-[minmax(0,1fr)_320px] xl:grid-cols-[minmax(0,1fr)_400px]">
               <div className="min-w-0 space-y-3">
-              <div className="space-y-3 bg-background md:sticky md:top-28 md:z-10">
+              <div className={`space-y-3 bg-background ${!showCameraGrid && !minimized ? "md:sticky md:top-28" : ""}`}>
               <div
                 ref={shellRef}
-                className={`relative aspect-video overflow-hidden ${expanded ? "flex h-full w-full items-center justify-center bg-ink" : "rounded-md border border-border"}`}
+                className={`relative aspect-video overflow-hidden ${minimized ? "w-44 rounded-md border border-border" : expanded ? "flex h-full w-full items-center justify-center bg-ink" : "rounded-md border border-border"}`}
               >
                 <video
                   ref={videoRef}
@@ -690,10 +691,19 @@ function CreatePage() {
                   type="button"
                   onClick={toggleExpand}
                   aria-label={expanded ? "Exit full screen" : "Full screen"}
-                  className="glass-strong absolute bottom-3 right-3 flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold"
+                  className={`glass-strong absolute bottom-3 rounded-full px-3 py-1.5 text-xs font-semibold ${minimized ? "right-2" : "right-3 flex items-center gap-1.5"}`}
                 >
                   {expanded ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
-                  {expanded ? "Exit full screen" : "Full screen"}
+                  {!minimized && (expanded ? "Exit full screen" : "Full screen")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMinimized((small) => !small)}
+                  aria-label={minimized ? "Restore live screen" : "Minimise live screen"}
+                  className={`glass-strong absolute bottom-3 rounded-full px-3 py-1.5 text-xs font-semibold ${minimized ? "left-2" : "left-3 flex items-center gap-1.5"}`}
+                >
+                  {minimized ? <Maximize2 className="h-3.5 w-3.5" /> : <Minimize2 className="h-3.5 w-3.5" />}
+                  {!minimized && (minimized ? "Restore" : "Minimise")}
                 </button>
               </div>
 
