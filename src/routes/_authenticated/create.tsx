@@ -83,7 +83,7 @@ function CreatePage() {
   const hostRef = useRef<HostController | null>(null);
   const [viewers, setViewers] = useState(0);
   const [activeCamera, setActiveCamera] = useState<1 | CameraSlot>(1);
-  const [showCameraGrid, setShowCameraGrid] = useState(false);
+  const [showCameraGrid, setShowCameraGrid] = useState(true);
   const [verseOnScreen, setVerseOnScreen] = useState(false);
   const [recording, setRecording] = useState<{ url: string; name: string } | null>(null);
   const [churchLogo, setChurchLogo] = useState<HTMLImageElement | null>(null);
@@ -1041,8 +1041,15 @@ function CameraTile({
   onSelect: () => void;
 }) {
   return (
-    <div className={`overflow-hidden rounded-md border ${active ? "border-primary" : "border-border"}`}>
-      <div className="relative aspect-video bg-secondary">
+    <div className={`overflow-hidden rounded-md border-2 ${active ? "border-destructive" : "border-border"}`}>
+      <div
+        role="button"
+        tabIndex={0}
+        aria-label={`Switch to Camera ${slot}`}
+        onClick={() => connected && !active && onSelect()}
+        onKeyDown={(e) => e.key === "Enter" && connected && !active && onSelect()}
+        className={`relative aspect-video bg-secondary ${connected && !active ? "cursor-pointer" : ""}`}
+      >
         {preview}
         {!connected ? (
           <div className="absolute inset-0 grid place-items-center text-muted-foreground"><Smartphone className="size-6" /></div>
