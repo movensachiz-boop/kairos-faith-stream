@@ -10,7 +10,8 @@
   events, Bible search + bookmarks, giving records, profile, notifications
 
 ## Live broadcasting
-- [ ] Repair viewer picture, arrange camera switchboard, and preserve upright landscape phone output.
+- [x] Merge viewer video/audio tracks, stabilize relay canvases, arrange camera tiles, and preserve upright landscape output; framing tests pass.
+- [ ] Verify live picture and switching on real phones — needs a signed-in host and paired devices; hosted viewer playback remains unverified.
 - [x] Bible/backgrounds, search, music and setup beside video with persistent live actions; computer/phone layout and preserved tool selections verified.
 - Small-audience WebRTC broadcast and playback
 - Live comments and background music with voice/music volume controls
