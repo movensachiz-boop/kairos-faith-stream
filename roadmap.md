@@ -10,7 +10,7 @@
   events, Bible search + bookmarks, giving records, profile, notifications
 
 ## Live broadcasting
-- [ ] Restore one-tap Bible-to-camera switching and keep the selected verse ready to show again.
+- [x] Restore one-tap Bible-to-camera switching and retain selected verse; browser checks pass for camera return, Bible recall, rapid switching and disconnected-camera protection.
 - [x] Merge viewer video/audio tracks, stabilize relay canvases, arrange camera tiles, and preserve upright landscape output; framing tests pass.
 - [ ] Verify live picture and switching on real phones — needs a signed-in host and paired devices; hosted viewer playback remains unverified.
 - [x] Bible/backgrounds, search, music and setup beside video with persistent live actions; computer/phone layout and preserved tool selections verified.
