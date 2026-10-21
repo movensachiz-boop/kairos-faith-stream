@@ -18,6 +18,7 @@
 - Multi-camera live uses ephemeral Realtime/WebRTC pairing: Camera 1 owns audio, Cameras 2–3 send video only, and no pairing state is persisted.
 - Live scripture slides are rendered to a canvas video track and substituted for the outgoing video track; the host audio track remains untouched so viewers receive the full slide without changing sound.
 - Live video and camera relays use fixed-size landscape canvases with upright contain framing; host preview uses the outgoing track, and viewers merge separate video/audio tracks into one stream to avoid audio-only blank playback.
+- Shot selection cancels pending slide loads; camera selection clears the slide at the host controller, while the workspace retains the selected slide for one-tap recall.
 - Live posters are uploaded to a private bucket and served through a public read-only route after checking that a public live listing references the image; this keeps arbitrary files private.
 - Live logo and caption overlays are composited into the fixed landscape output canvas so viewers and local recordings receive the same presentation.
 - The live creation workspace uses a video column and a tabbed tool rail; keep tool panels mounted when switching tabs so selections and audio playback survive navigation.
