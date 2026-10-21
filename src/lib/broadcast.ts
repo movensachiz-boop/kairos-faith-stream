@@ -2,6 +2,8 @@
 import { supabase } from "@/integrations/supabase/client";
 import { createVerseStage, type VerseSlide } from "@/lib/verse-stage";
 
+import { landscapeFrame } from "@/lib/video-frame";
+
 const ICE: RTCConfiguration = {
   iceServers: [{ urls: ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"] }],
 };
@@ -55,6 +57,7 @@ export type HostController = {
   useCamera: (slot: 1 | CameraSlot) => Promise<void>;
   showVerse: (slide: VerseSlide | null) => Promise<void>;
   verseCanvas: HTMLCanvasElement;
+  previewStream: MediaStream;
   finishRecording: () => Promise<Blob | null>;
   setLogo: (logo: HTMLImageElement | null, position: LogoPosition, size: number) => void;
   setCaption: (text: string) => void;
@@ -88,25 +91,26 @@ export function startHost(
       relays.set(message.slot, relay);
     }
     const current = relay;
-    const peer = cameraPeers.get(message.slot)?.pc;
-    if (!peer || peer.connectionState !== "connected") {
-      if (remoteCameras.get(message.slot) !== current.stream) {
-        remoteCameras.set(message.slot, current.stream);
-        onCamera(message.slot, current.stream, "connected");
-        if (activeSlot === message.slot) void useCamera(message.slot);
-      }
-    }
     if (current.busy) return;
     current.busy = true;
     const img = new Image();
     img.onload = () => {
       const ctx = current.canvas.getContext("2d");
       if (ctx) {
-        if (current.canvas.width !== img.width || current.canvas.height !== img.height) {
-          current.canvas.width = img.width;
-          current.canvas.height = img.height;
+        const frame = landscapeFrame(img.width, img.height, 640, 360);
+        if (frame) {
+          ctx.fillStyle = "#000";
+          ctx.fillRect(0, 0, 640, 360);
+          ctx.drawImage(img, frame.x, frame.y, frame.width, frame.height);
+          const direct = remoteCameras.get(message.slot);
+          const track = direct?.getVideoTracks()[0];
+          const video = track && direct !== current.stream ? videoFor(track) : null;
+          if (!video || video.readyState < 2 || !video.videoWidth) {
+            remoteCameras.set(message.slot, current.stream);
+            onCamera(message.slot, current.stream, "connected");
+            if (activeSlot === message.slot) void useCamera(message.slot);
+          }
         }
-        ctx.drawImage(img, 0, 0);
       }
       current.busy = false;
     };
@@ -123,6 +127,7 @@ export function startHost(
   recCanvas.width = 1280;
   recCanvas.height = 720;
   const recCtx = recCanvas.getContext("2d");
+  if (recCtx) { recCtx.fillStyle = "#000"; recCtx.fillRect(0, 0, 1280, 720); }
   const outputStream = recCanvas.captureStream(30);
   const outputTrack = outputStream.getVideoTracks()[0] ?? null;
   // One playing video element per source, so switching shots never waits on a reload (no blank frames).
@@ -307,7 +312,7 @@ export function startHost(
       source = verseStage.canvas; w = 1280; h = 720;
     } else if (activeVideo) {
       const el = videoFor(activeVideo);
-      if (el.videoWidth && el.videoHeight) { source = el; w = el.videoWidth; h = el.videoHeight; }
+      if (el.readyState >= 2 && el.videoWidth && el.videoHeight) { source = el; w = el.videoWidth; h = el.videoHeight; }
     }
     if (!source) {
       if (lastSource) return; // hold the previous picture rather than flashing black
@@ -401,12 +406,14 @@ export function startHost(
     if (activeSlot === 1 && !verseVisible) activeVideo = track;
   }
 
-  return { stop, useCamera, showVerse, verseCanvas: verseStage.canvas, finishRecording, setLogo, setCaption, setMainVideo };
+  return { stop, useCamera, showVerse, verseCanvas: verseStage.canvas, previewStream: outputStream, finishRecording, setLogo, setCaption, setMainVideo };
 }
 
 export function joinAsViewer(streamId: string, onStream: (stream: MediaStream) => void, onEnd: () => void) {
   const me = crypto.randomUUID();
   let pc: RTCPeerConnection | null = null;
+  let received = new MediaStream();
+  const pendingIce: RTCIceCandidateInit[] = [];
   const channel = viewerChannel(streamId);
   const send = (payload: ViewerSignal) => channel.send({ type: "broadcast", event: "signal", payload });
 
@@ -418,19 +425,23 @@ export function joinAsViewer(streamId: string, onStream: (stream: MediaStream) =
       else if (message.type === "offer" && message.to === me) {
         pc?.close();
         pc = new RTCPeerConnection(ICE);
+        received = new MediaStream();
         pc.ontrack = (event) => {
-          const stream = event.streams[0];
-          if (stream) onStream(stream);
+          // Canvas video and mixed audio have distinct stream IDs; merge tracks.
+          received.addTrack(event.track);
+          onStream(received);
         };
         pc.onicecandidate = (event) => {
           if (event.candidate) void send({ type: "ice", from: me, candidate: event.candidate.toJSON() });
         };
         await pc.setRemoteDescription(message.sdp);
+        for (const candidate of pendingIce.splice(0)) await pc.addIceCandidate(candidate).catch(() => {});
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
         await send({ type: "answer", from: me, sdp: answer });
       } else if (message.type === "ice" && message.to === me) {
-        await pc?.addIceCandidate(message.candidate).catch(() => {});
+        if (pc?.remoteDescription) await pc.addIceCandidate(message.candidate).catch(() => {});
+        else pendingIce.push(message.candidate);
       }
     })
     .subscribe((status) => {

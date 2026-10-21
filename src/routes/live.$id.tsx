@@ -97,13 +97,13 @@ function WatchPage() {
       <div className="min-w-0 space-y-5">
         <div
           ref={shellRef}
-          className={`relative aspect-video overflow-hidden ${expanded ? "flex h-full w-full items-center justify-center bg-ink" : "rounded-md glass"}`}
+          className={`relative aspect-video overflow-hidden ${expanded ? "flex h-full w-full items-center justify-center bg-video-surface" : "rounded-md glass"}`}
         >
           <video
             ref={videoRef}
             playsInline
             muted={muted}
-            className="h-full w-full bg-ink object-contain"
+            className="h-full w-full bg-video-surface object-contain"
           />
           {!ended && status === "playing" ? (
             <span className="absolute left-3 top-3 flex items-center gap-2 rounded-md bg-live px-3 py-1 text-xs font-bold text-destructive-foreground">
