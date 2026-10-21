@@ -82,6 +82,7 @@ function CreatePage() {
   const [startedAt, setStartedAt] = useState<string | null>(null);
   const [clock, setClock] = useState(Date.now());
   const hostRef = useRef<HostController | null>(null);
+  const shotRequestRef = useRef(0);
   const [viewers, setViewers] = useState(0);
   const [activeCamera, setActiveCamera] = useState<1 | CameraSlot>(1);
   const [showCameraGrid, setShowCameraGrid] = useState(true);
@@ -582,25 +583,36 @@ function CreatePage() {
   }
 
   async function selectCamera(slot: 1 | CameraSlot) {
-    await hostRef.current?.useCamera(slot);
-    setActiveCamera(slot);
-    if (verseOnScreen) { await hostRef.current?.showVerse(null); setVerseOnScreen(false); setSelectedVerse(null); }
+    const host = hostRef.current;
+    if (!host) return;
+    const request = ++shotRequestRef.current;
+    try {
+      await host.useCamera(slot);
+      if (request !== shotRequestRef.current) return;
+      setActiveCamera(slot);
+      setVerseOnScreen(false);
+    } catch (cause) {
+      toast.error(cause instanceof Error ? cause.message : "Camera is not ready yet.");
+    }
   }
 
   async function showVerse(slide: VerseSlide) {
     setSelectedVerse(slide);
+    const request = ++shotRequestRef.current;
     if (hostRef.current) {
-      await hostRef.current.showVerse(slide);
-      setVerseOnScreen(true);
+      try {
+        await hostRef.current.showVerse(slide);
+        if (request === shotRequestRef.current) setVerseOnScreen(true);
+      } catch { toast.error("The verse could not be shown. Try selecting it again."); }
     } else {
       toast.info("Start the live first — then tap a result and it shows straight away.");
     }
   }
 
   async function clearVerse() {
+    shotRequestRef.current += 1;
     await hostRef.current?.showVerse(null);
     setVerseOnScreen(false);
-    setSelectedVerse(null);
   }
 
   async function submit(e: React.FormEvent) {
@@ -706,6 +718,10 @@ function CreatePage() {
                 </button>
               </div>
 
+              {liveId ? <div className="flex flex-wrap gap-2" aria-label="Live shot switcher">
+                <Button type="button" variant={verseOnScreen ? "default" : "outline"} disabled={!selectedVerse} aria-pressed={verseOnScreen} onClick={() => { if (selectedVerse) void showVerse(selectedVerse); }}><BookOpen /> Bible</Button>
+                {([1, 2, 3] as const).map((slot) => <Button key={slot} type="button" variant={!verseOnScreen && activeCamera === slot ? "default" : "outline"} disabled={slot !== 1 && cameraStatus[slot] !== "connected"} aria-pressed={!verseOnScreen && activeCamera === slot} onClick={() => void selectCamera(slot)}><Camera /> Camera {slot}</Button>)}
+              </div> : null}
               </div>
               {liveId ? (
                 <div className="space-y-3 border-y border-border py-4">
@@ -715,7 +731,7 @@ function CreatePage() {
                       <p className="text-xs text-muted-foreground">Switch the video shot. Camera 1 always supplies sound.</p>
                     </div>
                     <span className="rounded-md bg-secondary px-2 py-1 text-xs font-semibold text-primary">
-                      Camera {activeCamera} on air
+                      {verseOnScreen ? "Bible on air" : `Camera ${activeCamera} on air`}
                     </span>
                   </div>
                    <div className="flex flex-wrap gap-2">
@@ -737,7 +753,7 @@ function CreatePage() {
                    {showCameraGrid ? <div className="grid grid-cols-1 gap-3 min-[480px]:grid-cols-2 xl:grid-cols-3">
                     <CameraTile
                       slot={1}
-                      active={activeCamera === 1}
+                      active={activeCamera === 1 && !verseOnScreen}
                       connected
                       preview={<video muted playsInline ref={(node) => {
                         if (node && streamRef.current) {
@@ -749,14 +765,14 @@ function CreatePage() {
                     />
                     <CameraTile
                       slot={2}
-                      active={activeCamera === 2}
+                      active={activeCamera === 2 && !verseOnScreen}
                       connected={cameraStatus[2] === "connected"}
                       preview={<video ref={camera2Ref} muted playsInline className="h-full w-full object-contain" />}
                       onSelect={() => selectCamera(2)}
                     />
                     <CameraTile
                       slot={3}
-                      active={activeCamera === 3}
+                      active={activeCamera === 3 && !verseOnScreen}
                       connected={cameraStatus[3] === "connected"}
                       preview={<video ref={camera3Ref} muted playsInline className="h-full w-full object-contain" />}
                       onSelect={() => selectCamera(3)}

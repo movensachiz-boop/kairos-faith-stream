@@ -108,7 +108,7 @@ export function startHost(
           if (!video || video.readyState < 2 || !video.videoWidth) {
             remoteCameras.set(message.slot, current.stream);
             onCamera(message.slot, current.stream, "connected");
-            if (activeSlot === message.slot) void useCamera(message.slot);
+            if (activeSlot === message.slot && !verseVisible) activeVideo = current.stream.getVideoTracks()[0] ?? mainVideo;
           }
         }
       }
@@ -121,6 +121,7 @@ export function startHost(
   let activeVideo = mainVideo;
   let activeSlot: 1 | CameraSlot = 1;
   let verseVisible = false;
+  let shotGeneration = 0;
   const verseStage = createVerseStage();
   // One fixed 16:9 output for viewers and recordings, even if a phone supplies portrait video.
   const recCanvas = document.createElement("canvas");
@@ -240,18 +241,27 @@ export function startHost(
     relays.delete(slot);
     cameraIce.delete(slot);
     onCamera(slot, null, "disconnected");
-    if (activeSlot === slot) void useCamera(1);
+    if (activeSlot === slot) {
+      activeSlot = 1;
+      if (!verseVisible) void useCamera(1);
+    }
   }
 
   async function useCamera(slot: 1 | CameraSlot) {
     const nextTrack = slot === 1 ? mainVideo : remoteCameras.get(slot)?.getVideoTracks()[0];
-    if (!nextTrack) return;
-    activeVideo = verseVisible ? (verseStage.track ?? nextTrack) : nextTrack;
+    if (!nextTrack || nextTrack.readyState === "ended") throw new Error(`Camera ${slot} is not ready yet.`);
+    shotGeneration += 1;
+    verseVisible = false;
+    activeVideo = nextTrack;
     activeSlot = slot;
+    videoFor(nextTrack);
+    await verseStage.setSlide(null);
   }
 
   async function showVerse(slide: VerseSlide | null) {
+    const generation = ++shotGeneration;
     if (slide) await verseStage.setSlide(slide);
+    if (generation !== shotGeneration) return;
     verseVisible = !!slide;
     activeVideo = verseVisible ? (verseStage.track ?? mainVideo) : ((activeSlot === 1 ? mainVideo : remoteCameras.get(activeSlot)?.getVideoTracks()[0]) ?? mainVideo);
     if (!slide) await verseStage.setSlide(null);
