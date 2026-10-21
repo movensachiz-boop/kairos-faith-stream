@@ -691,19 +691,19 @@ function CreatePage() {
                   type="button"
                   onClick={toggleExpand}
                   aria-label={expanded ? "Exit full screen" : "Full screen"}
-                  className="glass-strong absolute bottom-3 right-3 flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold"
+                  className={`glass-strong absolute bottom-3 rounded-full px-3 py-1.5 text-xs font-semibold ${minimized ? "right-2" : "right-3 flex items-center gap-1.5"}`}
                 >
                   {expanded ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
-                  {expanded ? "Exit full screen" : "Full screen"}
+                  {!minimized && (expanded ? "Exit full screen" : "Full screen")}
                 </button>
                 <button
                   type="button"
                   onClick={() => setMinimized((small) => !small)}
                   aria-label={minimized ? "Restore live screen" : "Minimise live screen"}
-                  className="glass-strong absolute bottom-3 left-3 flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold"
+                  className={`glass-strong absolute bottom-3 rounded-full px-3 py-1.5 text-xs font-semibold ${minimized ? "left-2" : "left-3 flex items-center gap-1.5"}`}
                 >
                   {minimized ? <Maximize2 className="h-3.5 w-3.5" /> : <Minimize2 className="h-3.5 w-3.5" />}
-                  {minimized ? "Restore" : "Minimise"}
+                  {!minimized && (minimized ? "Restore" : "Minimise")}
                 </button>
               </div>
 
